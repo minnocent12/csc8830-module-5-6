@@ -78,6 +78,20 @@ def load_image_unchanged(path: str | Path) -> np.ndarray:
     return validate_image_array(image, name="loaded unchanged image").copy()
 
 
+def to_grayscale(image: np.ndarray, *, name: str = "image") -> np.ndarray:
+    """Convert a validated BGR or grayscale image to single-channel grayscale.
+
+    Returns the validated input unchanged (not a copy) when it is already 2D grayscale, so
+    callers that already hold a grayscale frame avoid a redundant conversion.
+    """
+    validated = validate_image_array(image, name=name)
+    if validated.ndim == 2:
+        return validated
+    if validated.shape[2] != 3:
+        raise ValueError(f"{name} must be single-channel grayscale or 3-channel BGR, got {validated.shape[2]} channels")
+    return cv2.cvtColor(validated, cv2.COLOR_BGR2GRAY)
+
+
 def describe_image(
     image: np.ndarray,
     *,
