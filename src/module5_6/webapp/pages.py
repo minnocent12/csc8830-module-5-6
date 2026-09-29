@@ -468,7 +468,17 @@ def _motion_tracking_page() -> None:
             s3.metric("Mean |displacement| (px)", f"{float(magnitudes.mean()):.3f}")
             s4.metric("Max |displacement| (px)", f"{float(magnitudes.max()):.3f}")
 
-            st.subheader("Point coordinates and per-point error")
+            st.subheader("Point coordinates and tracking-quality metrics")
+            st.caption(
+                "'LK consistency error' and 'Forward-backward consistency (px)' below are "
+                "algorithmic self-consistency signals reported by this run's Lucas-Kanade "
+                "tracker - they measure how well the tracker's own model fit, and how well a "
+                "point tracked forward then backward returns to where it started. They are "
+                "**not** the assignment's required pixel-location validation, which compares a "
+                "predicted location against an actual observed location manually identified in "
+                "a real video frame. That comparison is a later phase and remains "
+                "PENDING USER EXPERIMENT for the two required assignment videos."
+            )
             max_rows = 200
             rows = []
             for index in range(min(valid_previous.shape[0], max_rows)):
@@ -476,23 +486,23 @@ def _motion_tracking_page() -> None:
                     "Point": index,
                     "Frame1 x": round(float(valid_previous[index, 0]), 2),
                     "Frame1 y": round(float(valid_previous[index, 1]), 2),
-                    "Frame2 x": round(float(valid_next[index, 0]), 2),
-                    "Frame2 y": round(float(valid_next[index, 1]), 2),
+                    "Frame2 x (predicted)": round(float(valid_next[index, 0]), 2),
+                    "Frame2 y (predicted)": round(float(valid_next[index, 1]), 2),
                     "u": round(float(displacements[index, 0]), 2),
                     "v": round(float(displacements[index, 1]), 2),
                     "Magnitude (px)": round(float(magnitudes[index]), 2),
-                    "OpenCV error": round(float(valid_error[index]), 4),
+                    "LK consistency error (algorithmic)": round(float(valid_error[index]), 4),
                 }
                 if valid_fb_error is not None:
-                    row["Forward-backward error (px)"] = round(float(valid_fb_error[index]), 3)
+                    row["Forward-backward consistency (px)"] = round(float(valid_fb_error[index]), 3)
                 rows.append(row)
             st.dataframe(rows, width="stretch")
             if valid_previous.shape[0] > max_rows:
                 st.caption(f"Showing the first {max_rows} of {valid_previous.shape[0]} valid tracks.")
             st.caption(
-                "'OpenCV error' and 'Forward-backward error' are algorithmic tracking-quality "
-                "signals computed by this run, not the assignment's required manual pixel-"
-                "location validation (a later phase)."
+                "Frame 2 coordinates above are the tracker's *predicted* location, not a "
+                "manually observed one; no actual observed pixel location has been recorded "
+                "for these points."
             )
 
         st.subheader("Track history across the loaded frames")
