@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import streamlit as st
 
+VIDEO_TYPES = ["mp4", "avi", "mov", "mkv", "m4v"]
+
 
 def pending_experiment_banner(detail: str | None = None) -> None:
     """Display an honest notice for work that needs later implementation or user data."""

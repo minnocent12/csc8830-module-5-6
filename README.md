@@ -16,11 +16,16 @@ Vision. The assignment covers two questions:
 
 ## Current status
 
-Phase 0 establishes the independent package, safe image IO, data/result directories, the
-page-provider contract, and pending-safe Streamlit navigation. Optical flow, motion tracking,
-bilinear interpolation, structure from motion, and all empirical results are scheduled for
-later approved phases. No results, pixel coordinates, camera parameters, or SfM measurements
-are fabricated.
+Phase 0 established the independent package, safe image IO, data/result directories, the
+page-provider contract, and pending-safe Streamlit navigation. Phase 1 adds video loading and
+validation, video metadata, configurable sample-interval extraction (with the assignment's
+30-second minimum enforced by default), consecutive-frame reading, grayscale conversion, dense
+Farneback optical flow, magnitude/direction computation, HSV-color and arrow-overlay
+visualization, and processed optical-flow video export - all wired into the Optical Flow page.
+Motion tracking, bilinear interpolation, structure from motion, and all empirical results
+remain scheduled for later approved phases. No results, pixel coordinates, camera parameters,
+or SfM measurements are fabricated; the two assignment videos remain PENDING USER EXPERIMENT
+until supplied.
 
 ## Setup
 
@@ -39,20 +44,29 @@ From this repository root:
 
     streamlit run app.py
 
-The current foundation exposes five pending-safe pages:
+The app exposes five pages:
 
-- Optical Flow
-- Motion Tracking
-- Bilinear Interpolation & Theory
-- Structure From Motion
-- Experiments & Results
+- **Optical Flow** - upload a video (mp4/avi/mov/mkv/m4v) to compute dense Farneback optical
+  flow over a configurable sample interval. Controls: start time, sample duration (30-second
+  assignment minimum enforced by default, with an explicit opt-out for quick previews),
+  visualization mode (HSV color or arrow overlay), vector spacing, arrow magnitude threshold,
+  and a frame cap that bounds interactive compute time. Outputs: the sample's start/end
+  frames, a representative HSV-color and arrow-overlay frame pair, a downloadable/playable
+  optical-flow video, and live magnitude/direction statistics. These statistics are real
+  computed values from whatever video is uploaded, but they are exploratory tooling, not the
+  assignment's required two-frame pixel-tracking validation (a later phase).
+- Motion Tracking, Bilinear Interpolation & Theory, Structure From Motion, and Experiments &
+  Results remain pending-safe placeholders for later approved phases.
 
 ## Run tests
 
     python -m pytest -q
 
-Tests cover image validation, BGR decoding, foundation types, and the dashboard-compatible
-page-provider contract. They do not count as experimental validation.
+Tests cover image validation, BGR decoding, foundation types, video metadata/sample-range/
+frame-reading behavior against small synthetic video fixtures, Farneback optical-flow
+correctness against a known synthetic pixel translation, flow visualization, and the
+dashboard-compatible page-provider contract. They do not count as experimental validation -
+that requires the actual assignment videos (see "Data and video requirements").
 
 ## Planned reproduction workflow
 
@@ -83,7 +97,12 @@ See `data/README.md` for the exact expected layout.
 
     app.py
     src/module5_6/
-      core CV, theory, and SfM modules (added in later phases)
+      types.py            shared dataclasses (image/video metadata, flow/experiment status)
+      io_utils.py         safe BGR image IO and grayscale conversion
+      video.py            video loading, metadata, sample-interval extraction, frame reading,
+                           and optical-flow video export
+      optical_flow.py     pure Farneback dense-flow computation and visualization
+      tracking/SfM/theory modules (added in later phases)
       webapp/             PageSpec provider and Streamlit UI
     data/                 user videos and four-view SfM images
     results/              derived optical-flow/tracking/SfM outputs and metrics
@@ -103,7 +122,7 @@ Module 5-6 with:
 The host should add `Module_5-6/src` to its import path and adapt page objects by their
 `module_label`, `page_label`, `order`, and `render` attributes. Wiring Module 5-6 into the
 course root dashboard and the public Streamlit Community Cloud deployment (see
-`../DEPLOYMENT.md`) is a later step, not part of this foundation phase. The standalone
+`../DEPLOYMENT.md`) is a later step, not part of these early phases. The standalone
 Module 5-6 app remains the recommended grading path in the meantime.
 
 ## Limitations and integrity notes

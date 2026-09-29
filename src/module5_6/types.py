@@ -31,3 +31,30 @@ class ExperimentStatus:
     status: ExperimentStatusValue
     message: str
     source: str | None = None
+
+
+@dataclass(frozen=True)
+class VideoMetadata:
+    """Describes a video file's stream properties without decoding any frame pixels."""
+
+    path: str
+    fps: float
+    frame_count: int
+    width: int
+    height: int
+    duration_seconds: float
+
+
+@dataclass(frozen=True)
+class FlowStatistics:
+    """Aggregate per-pixel magnitude statistics computed over one or more flow fields.
+
+    A real, computed summary of whatever frames were actually processed (an uploaded demo
+    video, or a synthetic test fixture) - not a substitute for the assignment's required
+    two-frame tracking validation, which needs specific tracked pixel coordinates.
+    """
+
+    mean_magnitude: float
+    median_magnitude: float
+    max_magnitude: float
+    frame_pairs: int

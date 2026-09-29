@@ -7,6 +7,7 @@ import pytest
 from module5_6.io_utils import (
     decode_image_bgr,
     describe_image,
+    to_grayscale,
     validate_image_array,
 )
 
@@ -43,6 +44,30 @@ def test_decode_image_bgr_returns_expected_shape_and_order() -> None:
 def test_decode_image_bgr_rejects_empty_bytes() -> None:
     with pytest.raises(ValueError, match="empty"):
         decode_image_bgr(b"")
+
+
+def test_to_grayscale_converts_bgr_image() -> None:
+    image = np.zeros((4, 5, 3), dtype=np.uint8)
+    image[..., 2] = 255  # pure red in BGR
+
+    gray = to_grayscale(image)
+
+    assert gray.ndim == 2
+    assert gray.shape == (4, 5)
+    assert gray.dtype == np.uint8
+
+
+def test_to_grayscale_passes_through_existing_grayscale() -> None:
+    gray_source = np.arange(12, dtype=np.uint8).reshape(3, 4)
+
+    result = to_grayscale(gray_source)
+
+    assert result is gray_source
+
+
+def test_to_grayscale_rejects_four_channel_image() -> None:
+    with pytest.raises(ValueError, match="single-channel grayscale or 3-channel BGR"):
+        to_grayscale(np.zeros((4, 4, 4), dtype=np.uint8))
 
 
 def test_describe_image_records_shape_dtype_and_channel_order() -> None:
