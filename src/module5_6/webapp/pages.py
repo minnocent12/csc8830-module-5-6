@@ -20,6 +20,19 @@ from module5_6.optical_flow import (
     flow_to_hsv_bgr,
     summarize_flow_magnitudes,
 )
+from module5_6.tracking import (
+    LucasKanadeParams,
+    ShiTomasiParams,
+    detect_features,
+    displacement_magnitude,
+    draw_displacement_vectors,
+    draw_tracked_points,
+    draw_trajectories,
+    forward_backward_validate,
+    track_points,
+    track_trajectories,
+    valid_forward_backward_mask,
+)
 from module5_6.video import (
     MINIMUM_SAMPLE_DURATION_SECONDS,
     compute_sample_frame_range,
@@ -259,12 +272,249 @@ def _optical_flow_page() -> None:
 
 
 def _motion_tracking_page() -> None:
-    foundation_page(
-        "Motion Tracking",
-        "Question 1: Shi-Tomasi feature detection, pyramidal Lucas-Kanade tracking between two "
-        "frames, and the two-frame tracking-problem visualization will be added in a later "
-        "phase.",
+    st.header("Motion Tracking")
+    st.info(
+        "Question 1: Shi-Tomasi feature detection plus pyramidal Lucas-Kanade tracking between "
+        "consecutive frames, following the two-frame tracking problem from "
+        "IMPLEMENTATION_PLAN.md Section 10 (find P' = (x+u, y+v) in Frame 2 for each point "
+        "P = (x, y) in Frame 1). The formal brightness-constancy/Lucas-Kanade derivation and "
+        "manual pixel-location validation are later phases."
     )
+    upload = st.file_uploader("Video", type=VIDEO_TYPES, key="tracking_upload")
+    if upload is None:
+        pending_experiment_banner(
+            "Upload a video to detect and track features. The two videos required by the "
+            "assignment, and their required two-consecutive-frame pixel validation, are "
+            "PENDING USER EXPERIMENT until supplied."
+        )
+        return
+
+    suffix = Path(upload.name).suffix or ".mp4"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_input:
+        tmp_input.write(upload.getvalue())
+        input_path = Path(tmp_input.name)
+
+    try:
+        try:
+            metadata = get_video_metadata(input_path)
+        except (FileNotFoundError, ValueError) as exc:
+            st.error(f"Could not read the uploaded video: {exc}")
+            return
+
+        st.caption(
+            f"Input: {upload.name} | {metadata.width} x {metadata.height} pixels | "
+            f"{metadata.fps:.2f} fps | {metadata.frame_count} frames | "
+            f"{metadata.duration_seconds:.2f} s"
+        )
+
+        st.subheader("Frame selection")
+        max_start = max(0.0, metadata.duration_seconds - (2.0 / metadata.fps))
+        start_seconds = float(
+            st.number_input(
+                "Start time (seconds)",
+                min_value=0.0,
+                max_value=max_start,
+                value=0.0,
+                step=1.0,
+                key="tracking_start_seconds",
+            )
+        )
+        frames_to_load = int(
+            st.slider(
+                "Frames to load (track-history length)",
+                min_value=2,
+                max_value=60,
+                value=15,
+                help=(
+                    "Frame 1 and Frame 2 of the two-frame tracking demo are always the first "
+                    "two consecutive frames of this loaded window; the full window is used for "
+                    "the track-history/trajectory visualization."
+                ),
+                key="tracking_frames_to_load",
+            )
+        )
+
+        with st.expander("Shi-Tomasi feature-detection settings", expanded=False):
+            max_corners = int(st.slider("Max corners", 10, 300, 100, key="tracking_max_corners"))
+            quality_level = float(
+                st.slider("Quality level", 0.01, 0.5, 0.3, step=0.01, key="tracking_quality_level")
+            )
+            min_distance = float(
+                st.slider("Min distance between corners (pixels)", 1.0, 30.0, 7.0, key="tracking_min_distance")
+            )
+            block_size = int(
+                st.select_slider("Block size", options=[3, 5, 7, 9, 11], value=7, key="tracking_block_size")
+            )
+            use_harris = st.checkbox("Use Harris corner detector", value=False, key="tracking_use_harris")
+
+        with st.expander("Lucas-Kanade tracking settings", expanded=False):
+            win_size = int(
+                st.select_slider("Window size", options=[15, 21, 31, 41], value=21, key="tracking_win_size")
+            )
+            max_level = int(st.slider("Pyramid levels", 0, 5, 3, key="tracking_max_level"))
+            max_iterations = int(
+                st.slider("Max iterations", 5, 100, 30, key="tracking_max_iterations")
+            )
+            epsilon = float(
+                st.slider("Convergence epsilon", 0.001, 0.1, 0.01, step=0.001, key="tracking_epsilon")
+            )
+            validate_fb = st.checkbox(
+                "Validate tracks with forward-backward error",
+                value=True,
+                help="Tracks points forward then backward; a large drift flags an unreliable track.",
+                key="tracking_validate_fb",
+            )
+            max_fb_error = float(
+                st.slider(
+                    "Max forward-backward error (pixels)",
+                    0.1,
+                    5.0,
+                    1.0,
+                    step=0.1,
+                    key="tracking_max_fb_error",
+                )
+            )
+
+        shi_tomasi_params = ShiTomasiParams(
+            max_corners=max_corners,
+            quality_level=quality_level,
+            min_distance=min_distance,
+            block_size=block_size,
+            use_harris_detector=use_harris,
+        )
+        lk_params = LucasKanadeParams(
+            win_size=(win_size, win_size), max_level=max_level, max_iterations=max_iterations, epsilon=epsilon
+        )
+
+        if not st.button("Detect and track features", type="primary"):
+            pending_experiment_banner(
+                "Set the frame window and detector/tracker settings, then run to view results."
+            )
+            return
+
+        start_frame = int(round(start_seconds * metadata.fps))
+        start_frame = max(0, min(start_frame, max(0, metadata.frame_count - 2)))
+        end_frame = min(metadata.frame_count, start_frame + frames_to_load)
+
+        try:
+            frames = read_frame_range(input_path, start_frame, end_frame)
+        except ValueError as exc:
+            st.error(f"Could not read the requested frames: {exc}")
+            return
+
+        if len(frames) < 2:
+            st.error("At least two frames are required to track features; choose an earlier start time.")
+            return
+
+        grays = [to_grayscale(frame) for frame in frames]
+        features = detect_features(grays[0], params=shi_tomasi_params)
+        if features.shape[0] == 0:
+            st.warning(
+                "No Shi-Tomasi features were detected on Frame 1. Try a lower quality level or "
+                "a smaller min-distance."
+            )
+            return
+
+        # Two-frame tracking problem: Frame 1 (grays[0]) -> Frame 2 (grays[1]).
+        tracked = track_points(grays[0], grays[1], features, params=lk_params)
+
+        if validate_fb:
+            fb_result = forward_backward_validate(grays[0], grays[1], features, params=lk_params)
+            mask = valid_forward_backward_mask(fb_result, max_fb_error=max_fb_error)
+        else:
+            fb_result = None
+            mask = tracked.status
+
+        valid_previous = tracked.previous_points[mask]
+        valid_next = tracked.next_points[mask]
+        valid_error = tracked.error[mask]
+        valid_fb_error = fb_result.fb_error[mask] if fb_result is not None else None
+
+        st.subheader("Frame 1 and Frame 2")
+        c1, c2 = st.columns(2)
+        with c1:
+            st.image(
+                _bgr_to_rgb(draw_tracked_points(frames[0], features, color=(0, 255, 0))),
+                caption=f"Frame {start_frame}: detected Shi-Tomasi features ({features.shape[0]})",
+                width="stretch",
+            )
+        with c2:
+            st.image(
+                _bgr_to_rgb(draw_tracked_points(frames[1], valid_next, color=(0, 0, 255))),
+                caption=f"Frame {start_frame + 1}: tracked features ({valid_next.shape[0]} valid)",
+                width="stretch",
+            )
+
+        if valid_previous.shape[0] == 0:
+            st.warning(
+                "No tracks passed validation. Try relaxing the forward-backward threshold or "
+                "adjusting the Lucas-Kanade window size."
+            )
+        else:
+            st.subheader("Displacement vectors (Frame 1 -> Frame 2)")
+            st.image(
+                _bgr_to_rgb(draw_displacement_vectors(frames[0], valid_previous, valid_next)),
+                caption="Displacement vector (u, v) for each valid tracked point",
+                width="stretch",
+            )
+
+            displacements = valid_next - valid_previous
+            magnitudes = displacement_magnitude(displacements)
+
+            st.subheader("Selected statistics")
+            s1, s2, s3, s4 = st.columns(4)
+            s1.metric("Detected features", features.shape[0])
+            s2.metric("Valid tracks", valid_previous.shape[0])
+            s3.metric("Mean |displacement| (px)", f"{float(magnitudes.mean()):.3f}")
+            s4.metric("Max |displacement| (px)", f"{float(magnitudes.max()):.3f}")
+
+            st.subheader("Point coordinates and per-point error")
+            max_rows = 200
+            rows = []
+            for index in range(min(valid_previous.shape[0], max_rows)):
+                row = {
+                    "Point": index,
+                    "Frame1 x": round(float(valid_previous[index, 0]), 2),
+                    "Frame1 y": round(float(valid_previous[index, 1]), 2),
+                    "Frame2 x": round(float(valid_next[index, 0]), 2),
+                    "Frame2 y": round(float(valid_next[index, 1]), 2),
+                    "u": round(float(displacements[index, 0]), 2),
+                    "v": round(float(displacements[index, 1]), 2),
+                    "Magnitude (px)": round(float(magnitudes[index]), 2),
+                    "OpenCV error": round(float(valid_error[index]), 4),
+                }
+                if valid_fb_error is not None:
+                    row["Forward-backward error (px)"] = round(float(valid_fb_error[index]), 3)
+                rows.append(row)
+            st.dataframe(rows, width="stretch")
+            if valid_previous.shape[0] > max_rows:
+                st.caption(f"Showing the first {max_rows} of {valid_previous.shape[0]} valid tracks.")
+            st.caption(
+                "'OpenCV error' and 'Forward-backward error' are algorithmic tracking-quality "
+                "signals computed by this run, not the assignment's required manual pixel-"
+                "location validation (a later phase)."
+            )
+
+        st.subheader("Track history across the loaded frames")
+        trajectories = track_trajectories(grays, shi_tomasi_params=shi_tomasi_params, lk_params=lk_params)
+        alive_full_length = sum(1 for t in trajectories if len(t.positions) == len(grays))
+        st.image(
+            _bgr_to_rgb(draw_trajectories(frames[-1], trajectories)),
+            caption=(
+                f"Trajectories over {len(frames)} frames (frames {start_frame} - "
+                f"{start_frame + len(frames) - 1}); {alive_full_length} of {len(trajectories)} "
+                "tracked points survived the full window"
+            ),
+            width="stretch",
+        )
+        st.caption(
+            "These trajectories are computed live from whatever video was uploaded above; they "
+            "are exploratory tooling, not the assignment's required experimental evidence. The "
+            "two required assignment videos and their pixel-level tracking validation remain "
+            "PENDING USER EXPERIMENT until supplied."
+        )
+    finally:
+        input_path.unlink(missing_ok=True)
 
 
 def _theory_page() -> None:
