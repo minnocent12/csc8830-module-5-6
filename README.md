@@ -1,6 +1,8 @@
 # CSc 8830 Module 5-6 - Optical Flow, Motion Tracking, and Structure From Motion
 
-**Public web app (all modules):** <https://csc8830-dashboard-minnocent1.streamlit.app>
+**Public dashboard (Modules 2-4 today):** <https://csc8830-dashboard-minnocent1.streamlit.app>
+Module 5-6 is not yet wired into the public dashboard (see "Optional shared dashboard" below);
+until then, run the standalone app locally with `streamlit run app.py`.
 
 This is the independent Module 5-6 repository for Georgia State University CSc 8830 Computer
 Vision. The assignment covers two questions:
@@ -115,4 +117,4 @@ Module 5-6 app remains the recommended grading path in the meantime.
 
 ## GitHub repository
 
-<!-- Filled in once the independent Module 5-6 GitHub repository is created and pushed. -->
+<https://github.com/minnocent12/csc8830-module-5-6>
