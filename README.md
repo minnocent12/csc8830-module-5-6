@@ -22,10 +22,14 @@ validation, video metadata, configurable sample-interval extraction (with the as
 30-second minimum enforced by default), consecutive-frame reading, grayscale conversion, dense
 Farneback optical flow, magnitude/direction computation, HSV-color and arrow-overlay
 visualization, and processed optical-flow video export - all wired into the Optical Flow page.
-Motion tracking, bilinear interpolation, structure from motion, and all empirical results
-remain scheduled for later approved phases. No results, pixel coordinates, camera parameters,
-or SfM measurements are fabricated; the two assignment videos remain PENDING USER EXPERIMENT
-until supplied.
+Phase 2 adds Shi-Tomasi feature detection, pyramidal Lucas-Kanade tracking between consecutive
+frames, valid/invalid track filtering from OpenCV's status output, forward-backward tracking
+validation, displacement vectors/magnitude, and multi-frame trajectory/track-history support -
+all wired into the Motion Tracking page. Bilinear interpolation, structure from motion, and all
+empirical results remain scheduled for later approved phases. No results, pixel coordinates,
+camera parameters, or SfM measurements are fabricated; the two assignment videos and their
+required two-consecutive-frame pixel-location validation remain PENDING USER EXPERIMENT until
+supplied.
 
 ## Setup
 
@@ -55,8 +59,19 @@ The app exposes five pages:
   optical-flow video, and live magnitude/direction statistics. These statistics are real
   computed values from whatever video is uploaded, but they are exploratory tooling, not the
   assignment's required two-frame pixel-tracking validation (a later phase).
-- Motion Tracking, Bilinear Interpolation & Theory, Structure From Motion, and Experiments &
-  Results remain pending-safe placeholders for later approved phases.
+- **Motion Tracking** - upload a video to detect Shi-Tomasi features on a start frame and track
+  them with pyramidal Lucas-Kanade into the next consecutive frame (the assignment's two-frame
+  tracking problem) and across a longer loaded window for track history. Controls: start time,
+  track-history length, Shi-Tomasi settings (max corners, quality level, min distance, block
+  size, Harris toggle), Lucas-Kanade settings (window size, pyramid levels, iterations,
+  epsilon), and an optional forward-backward validation threshold. Outputs: Frame 1 with
+  detected features, Frame 2 with tracked features, a displacement-vector overlay, a
+  point-coordinate/displacement/error table, live tracking statistics, and a trajectory overlay
+  across the loaded frames. OpenCV's per-point and forward-backward errors are algorithmic
+  quality signals from whatever video is uploaded, not the assignment's required manual
+  pixel-location validation (a later phase).
+- Bilinear Interpolation & Theory, Structure From Motion, and Experiments & Results remain
+  pending-safe placeholders for later approved phases.
 
 ## Run tests
 
@@ -64,9 +79,12 @@ The app exposes five pages:
 
 Tests cover image validation, BGR decoding, foundation types, video metadata/sample-range/
 frame-reading behavior against small synthetic video fixtures, Farneback optical-flow
-correctness against a known synthetic pixel translation, flow visualization, and the
-dashboard-compatible page-provider contract. They do not count as experimental validation -
-that requires the actual assignment videos (see "Data and video requirements").
+correctness against a known synthetic pixel translation, flow visualization, Shi-Tomasi feature
+detection, Lucas-Kanade tracking correctness against a known synthetic pixel translation,
+valid/invalid track filtering, forward-backward validation, multi-frame trajectory building,
+tracking visualization, and the dashboard-compatible page-provider contract. They do not count
+as experimental validation - that requires the actual assignment videos (see "Data and video
+requirements").
 
 ## Planned reproduction workflow
 
@@ -102,7 +120,9 @@ See `data/README.md` for the exact expected layout.
       video.py            video loading, metadata, sample-interval extraction, frame reading,
                            and optical-flow video export
       optical_flow.py     pure Farneback dense-flow computation and visualization
-      tracking/SfM/theory modules (added in later phases)
+      tracking.py         Shi-Tomasi detection, pyramidal Lucas-Kanade tracking, forward-
+                           backward validation, trajectories, and tracking visualization
+      SfM/theory modules (added in later phases)
       webapp/             PageSpec provider and Streamlit UI
     data/                 user videos and four-view SfM images
     results/              derived optical-flow/tracking/SfM outputs and metrics
