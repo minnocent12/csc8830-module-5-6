@@ -1,0 +1,70 @@
+# Internal project instruction and planning files (not published to the public repository)
+/AGENTS.md
+/CLAUDE.md
+/GIT_WORKFLOW.md
+/IMPLEMENTATION_PLAN.md
+/MODULE_5_6_ASSIGNMENT_INSTRUCTIONS.md
+/MODULE_5_6_ASSIGNMENT_QUESTIONS.md
+
+# Python and packaging
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Streamlit and operating-system files
+.streamlit/
+.streamlit/secrets.toml
+.DS_Store
+
+# IDE, editor, temporary, and local environment files
+.idea/
+.vscode/
+.env
+.env.*
+!.env.example
+tmp/
+temp/
+*.tmp
+*.swp
+*.swo
+*~
+
+# User-collected video and four-view SfM image data. Keep directory placeholders tracked.
+data/videos/video_1/*
+data/videos/video_2/*
+data/sfm/view_1/*
+data/sfm/view_2/*
+data/sfm/view_3/*
+data/sfm/view_4/*
+!data/videos/video_1/.gitkeep
+!data/videos/video_2/.gitkeep
+!data/sfm/view_1/.gitkeep
+!data/sfm/view_2/.gitkeep
+!data/sfm/view_3/.gitkeep
+!data/sfm/view_4/.gitkeep
+
+# Generated result and report artifacts. Keep directory placeholders tracked.
+results/optical_flow/video_1/*
+results/optical_flow/video_2/*
+results/tracking/video_1/*
+results/tracking/video_2/*
+results/sfm/*
+results/metrics/*
+docs/report/figures/*
+!results/optical_flow/video_1/.gitkeep
+!results/optical_flow/video_2/.gitkeep
+!results/tracking/video_1/.gitkeep
+!results/tracking/video_2/.gitkeep
+!results/sfm/.gitkeep
+!results/metrics/.gitkeep
+!docs/report/figures/.gitkeep
