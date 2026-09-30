@@ -45,10 +45,15 @@ planar Structure-From-Motion foundation for Question 2: ORB feature detection/ma
 (`module5_6.homography`), camera/view metadata with no fabricated physical parameters
 (`module5_6.camera`), homogeneous-coordinate/boundary-transform helpers (`module5_6.geometry`),
 and a multi-view registration coordinator (`module5_6.sfm`) - all wired into the Structure From
-Motion page. **The four required assignment viewpoints have not been supplied yet**
-(`data/sfm/view_1/` through `view_4/` contain only `.gitkeep`), so this is tested foundation
-only, not the real four-view experiment - see `docs/STRUCTURE_FROM_MOTION_THEORY.md`. No
-results, pixel coordinates, camera parameters, or SfM measurements are fabricated.
+Motion page. Phase 6 then supplied the four required assignment viewpoints
+(`data/sfm/view_1/IMG_7283.JPG` through `view_4/IMG_7286.JPG`, a paperback book's front cover)
+and ran the real experiment end-to-end with `scripts/process_sfm_experiment.py`: real ORB
+correspondences, real RANSAC homographies (View 2/3/4 -> View 1), real reprojection error
+(0.877-1.546 px mean, over RANSAC inliers), and real boundary registration/reconstruction.
+**The four-view SfM experiment is complete** - full results, homography matrices, the real
+mathematical workout, and the camera-position table: `docs/EXPERIMENTAL_RESULTS.md` Section 9
+and `docs/SFM_CALCULATIONS.md` Sections 6-7. No result, pixel coordinate, camera parameter, or
+SfM measurement anywhere in this repository is fabricated.
 
 ## Setup
 
@@ -102,17 +107,17 @@ The app exposes five pages:
   result, and a schematic diagram, computed by the same `module5_6.interpolation` functions
   the tests use. Full write-ups: `docs/OPTICAL_FLOW_THEORY.md`,
   `docs/MOTION_TRACKING_DERIVATION.md`, `docs/BILINEAR_INTERPOLATION.md`.
-- **Structure From Motion** - upload up to four images of one flat/2D planar object. Controls:
-  per-view optional camera/device metadata (device, focal length, distance, orientation, notes
-  - never inferred from image size), a reference-view selector, ORB/homography settings
-  (max features; RANSAC vs. all-points; RANSAC threshold), and optional per-view boundary
-  corner coordinates. Outputs: detected ORB features on the reference view, matched-point
-  overlays for each other view, inlier counts, mean reprojection error (over inliers), the
-  estimated homography matrix, and (when boundary corners were entered) the registered
-  boundary overlaid on the reference view. This is a 2D planar homography registration, not a
-  dense/full 3D reconstruction - see `docs/STRUCTURE_FROM_MOTION_THEORY.md`. Computed live from
-  whatever images are uploaded; the real four-view assignment experiment remains
-  PENDING USER EXPERIMENT until `data/sfm/view_1/` through `view_4/` are supplied.
+- **Structure From Motion** - shows the completed real four-view experiment (object: a
+  paperback book's front cover) by default - real ORB features, matches, RANSAC homographies,
+  reprojection error, and boundary reconstruction, loaded from the committed
+  `results/sfm/sfm_summary.json` and figures so it renders without the original photos being
+  committed to Git. Upload up to four images of a different flat/2D planar object to run the
+  same live pipeline instead: per-view optional camera/device metadata (device, focal length,
+  distance, orientation, notes - never inferred from image size), a reference-view selector,
+  ORB/homography settings (max features; RANSAC vs. all-points; RANSAC threshold), and optional
+  per-view boundary corner coordinates. This is a 2D planar homography registration, not a
+  dense/full 3D reconstruction - see `docs/STRUCTURE_FROM_MOTION_THEORY.md` and
+  `docs/EXPERIMENTAL_RESULTS.md` Section 9 for the completed real results.
 - **Experiments & Results** - shows per-video status (whether a real video has been supplied
   under `data/videos/video_1|video_2/`), any generated optical-flow evidence summary, and a
   consolidated two-consecutive-frame pixel-location validation table. Completed records under
@@ -121,7 +126,8 @@ The app exposes five pages:
   uploaded too. Currently shows both videos as processed and both P1 records complete (pixel
   errors 4.628 px and 8.408 px - see `docs/EXPERIMENTAL_RESULTS.md`); the table shape still
   falls back to IMPLEMENTATION_PLAN.md Section 12's `PENDING USER EXPERIMENT` rows whenever no
-  records are found. Also reports whether any real `data/sfm/view_N/` image has been supplied.
+  records are found. Also reports the completed four-view SfM experiment's status (see the
+Structure From Motion page and `docs/EXPERIMENTAL_RESULTS.md` Section 9).
 
 ## Run tests
 
@@ -157,15 +163,22 @@ Once a real video is supplied, generate its required evidence with:
         --observed-x <X> --observed-y <Y> --video path/to/video_1.mp4
 
 See `docs/TRACKING_VALIDATION.md` for the full procedure, coordinate convention, and the
-distinction between the algorithmic and manually-observed pixel errors. `scripts/run_sfm.py`
-and `scripts/run_experiments.py` (structure-from-motion and cross-phase report figures) remain
-later-phase additions.
+distinction between the algorithmic and manually-observed pixel errors. The four-view SfM
+experiment is reproduced with:
+
+    python scripts/process_sfm_experiment.py
+
+which regenerates `results/sfm/sfm_summary.json` and every figure under `results/sfm/` from
+the real images under `data/sfm/`. `scripts/run_experiments.py` (a cross-phase report-figure
+aggregator) remains a later-phase addition.
 
 User videos are supplied under `data/videos/video_1/` and `data/videos/video_2/`, and the four
 SfM viewpoint images under `data/sfm/view_1/` through `data/sfm/view_4/`, or through the app.
-Large video files and user-collected images are not committed by default. Until real videos and
-four-view images exist, tracking errors, camera parameters, and SfM reprojection/boundary
-results remain pending user data collection.
+Large video files and user-collected original images are not committed by default (the derived
+SfM figures and summary under `results/sfm/` are committed, so the SfM page's default view does
+not depend on the original photos being present). Until real videos exist, optical-flow and
+tracking-validation results remain pending user data collection; the four-view SfM experiment
+is complete (`docs/EXPERIMENTAL_RESULTS.md` Section 9).
 
 ## Data and video requirements
 
@@ -206,6 +219,8 @@ See `data/README.md` for the exact expected layout.
     scripts/
       process_optical_flow.py   generate optical-flow evidence for one real video
       validate_tracking.py      two-step manual pixel-location validation (prepare / record)
+      process_sfm_experiment.py real four-view SfM experiment: features, homographies,
+                                 reprojection error, boundary registration, all results/sfm/*
     data/                 user videos, four-view SfM images, and experiment_manifest.json
     results/              derived optical-flow/tracking/SfM outputs and metrics
     docs/                 theory, derivations, results, report, and demo notes
@@ -229,12 +244,15 @@ Module 5-6 app remains the recommended grading path in the meantime.
 
 ## Limitations and integrity notes
 
-- Optical-flow accuracy is scene- and motion-dependent; results will document the actual
-  videos used.
+- Optical-flow accuracy is scene- and motion-dependent; results document the actual videos
+  used.
 - The four-view structure-from-motion demonstration assumes a flat/2D planar object, per the
-  assignment's stated simplification.
-- No claim of tracking accuracy, tracking error, or SfM reprojection accuracy will be made
-  before the corresponding real experiment has actually run.
+  assignment's stated simplification; it is a planar homography registration, not dense/full
+  3D reconstruction (`docs/STRUCTURE_FROM_MOTION_THEORY.md`).
+- No claim of tracking accuracy, tracking error, or SfM reprojection accuracy is made without
+  the corresponding real experiment having actually run; the SfM experiment has now run
+  (`docs/EXPERIMENTAL_RESULTS.md` Section 9) and its lower-confidence result (View 3's smaller
+  RANSAC inlier count) is reported as such, not smoothed over.
 
 ## GitHub repository
 

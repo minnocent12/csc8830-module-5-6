@@ -5,11 +5,46 @@ Motion task and states precisely what this implementation does and does not clai
 underlying camera/homography mathematics is in `docs/CAMERA_GEOMETRY.md`; the concrete
 calculation workflow and a worked numerical example are in `docs/SFM_CALCULATIONS.md`.
 
-**Status: PENDING USER EXPERIMENT.** `data/sfm/view_1/` through `view_4/` contain no real
-images yet (only `.gitkeep` placeholders - verified with
-`module5_6.experiment.find_supplied_video`-style directory checks). This phase (Phase 5)
-builds and tests the reusable software foundation only, against synthetic fixtures. No camera
-position, focal length, correspondence, or reprojection error in this document is invented.
+**Status: COMPLETE (Phase 6).** The four real images (`data/sfm/view_1/IMG_7283.JPG` through
+`view_4/IMG_7286.JPG`) have been captured and processed end-to-end by
+`scripts/process_sfm_experiment.py`: real ORB correspondences, real RANSAC homographies, real
+reprojection error, and real boundary registration. Every number in this section comes from
+that run (`results/sfm/sfm_summary.json`); nothing here is invented. (Phase 5, which this
+document originally described, built and tested the reusable software foundation only, against
+synthetic fixtures - that software is what Phase 6 then ran on the real images.)
+
+## 0. Phase 6 real-experiment summary
+
+- **Object**: the front cover of a paperback book (*The Tempest*, William Shakespeare, Folger
+  Shakespeare Library "Updated Edition" - a yellow/black textured, printed cover), treated as
+  the flat/2D planar object per the assignment's planar simplification. The spine and page
+  edges visible in the oblique views are not part of the tracked plane.
+- **Reference view**: `view_1` (`IMG_7283.JPG`) - the centered/front viewpoint closest to the
+  object (~9 in, per the user-recorded capture notes), chosen for having the least perspective
+  foreshortening of the front cover face; see `docs/SFM_CALCULATIONS.md` Section 6 for the full
+  per-view registration numbers.
+- **Camera**: all four photos were taken with the same device and lens (Apple iPhone 15 Pro
+  Max, 6.765 mm / f/1.78, real EXIF), within 72 seconds of each other, confirming a single
+  stationary-object capture session.
+- **Registration results** (RANSAC homography, View N -> View 1; full precision and every
+  intermediate count in `docs/SFM_CALCULATIONS.md` Section 6):
+
+  | View            | Inliers / retained matches | Mean reprojection error (inliers) |
+  | ---------------- | --------------------------- | ----------------------------------- |
+  | View 2 -> View 1 | 53 / 112 (47.3%)             | 1.546 px                            |
+  | View 3 -> View 1 | 7 / 30 (23.3%)                | 0.877 px                            |
+  | View 4 -> View 1 | 31 / 72 (43.1%)               | 1.285 px                            |
+
+  View 3 registered with fewer matches than View 2/4 after diagnosis showed many of its
+  candidate ORB matches were ambiguous (the cover's repeated/self-similar title lettering
+  produced locally-plausible but globally-inconsistent correspondences at that viewing angle);
+  switching to Lowe's ratio test (documented in `scripts/process_sfm_experiment.py`) recovered
+  a genuinely consistent, low-error homography from the correspondences that remained. See
+  `docs/EXPERIMENTAL_RESULTS.md` Section 9 for the full diagnosis and before/after numbers.
+- **Boundary reconstruction**: the four real, manually identified boundary corners in View 1
+  and the three homography-registered boundaries from Views 2-4 agree closely (see the overlay
+  at `results/sfm/reference_boundary_reconstruction.jpg`); a normalized top-down rectification
+  of View 1's cover is at `results/sfm/view_1_top_down_rectified.jpg`.
 
 ## 1. What the assignment asks for
 
@@ -66,20 +101,24 @@ is not implemented in this phase. Referring to the planar-homography result prod
 "3D reconstruction" would misrepresent what was actually computed, so this documentation and
 the corresponding web page avoid that phrasing throughout.
 
-## 5. Real-experiment requirements (later phase)
+## 5. Real-experiment requirements (completed in Phase 6)
 
-Once four real images exist (IMPLEMENTATION_PLAN.md Section 14):
+With the four real images in place (IMPLEMENTATION_PLAN.md Section 14), Phase 6 did all of the
+following, via `scripts/process_sfm_experiment.py`:
 
-- record each view's filename, image dimensions, and whatever camera/device, focal length,
-  intrinsic, approximate position/orientation, and distance-to-object information is actually
-  available (`module5_6.camera.ViewMetadata`) - fields the user cannot supply must stay
-  `None`, never a plausible-looking guess (see `docs/CAMERA_GEOMETRY.md` Section 3 and
-  `module5_6.camera`'s docstring);
-- choose a reference view and register the other three (`module5_6.sfm.register_views`);
-- report real per-point and mean reprojection errors and the recovered/registered boundary;
-- include the mathematical workouts required by IMPLEMENTATION_PLAN.md Section 22 as typed,
-  digitized work in the final report, following the worked example format in
-  `docs/SFM_CALCULATIONS.md`.
+- recorded each view's filename, image dimensions, and whatever camera/device, focal length,
+  and (user-recorded) approximate position/orientation/distance-to-object information is
+  actually available (`module5_6.camera.ViewMetadata`, `results/sfm/sfm_summary.json` ->
+  `views`) - every field the real data does not support stays `None`, never a plausible-looking
+  guess (see `docs/CAMERA_GEOMETRY.md` Section 5 and `module5_6.camera`'s docstring);
+- chose View 1 as the reference view and registered the other three
+  (`module5_6.sfm.register_views`);
+- reported real per-point and mean reprojection errors and the recovered/registered boundary
+  (Section 0 above, `docs/SFM_CALCULATIONS.md` Section 6);
+- includes the mathematical workout required by IMPLEMENTATION_PLAN.md Section 22, using one
+  actual matched point from the real images (`docs/SFM_CALCULATIONS.md` Section 7) - the
+  earlier Section 4 worked example above remains as an explanatory, invented-number example
+  only and is never presented as this real result.
 
 ## References
 

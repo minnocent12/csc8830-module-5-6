@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 import pytest
 
-from module5_6.features import ORBParams, detect_and_describe
+from module5_6.features import MatchParams, ORBParams, detect_and_describe
 from module5_6.geometry import apply_homography, transform_boundary_points
 from module5_6.sfm import ViewRegistration, register_view, register_views
 
@@ -113,6 +113,27 @@ def test_register_view_boundary_is_none_when_not_supplied() -> None:
     )
 
     assert registration.registered_boundary is None
+
+
+def test_register_view_applies_match_params_filter() -> None:
+    reference = _textured_reference(seed=7)
+    view = _warp_to_view(reference, _H_TRANSLATION)
+    reference_keypoints, reference_descriptors = detect_and_describe(reference, params=ORBParams(n_features=300))
+
+    unfiltered = register_view(
+        reference_keypoints, reference_descriptors, "view_1", view, orb_params=ORBParams(n_features=300)
+    )
+    filtered = register_view(
+        reference_keypoints,
+        reference_descriptors,
+        "view_1",
+        view,
+        orb_params=ORBParams(n_features=300),
+        match_params=MatchParams(max_matches=5),
+    )
+
+    assert filtered.matched_points_view.shape[0] == 5
+    assert filtered.matched_points_view.shape[0] < unfiltered.matched_points_view.shape[0]
 
 
 def test_register_view_raises_with_insufficient_matches() -> None:

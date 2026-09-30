@@ -64,5 +64,502 @@
       "pixel_error": 8.407578289815678
     }
   ],
-  "schema_notes": "status values: pending_user_experiment (no video supplied yet), available (video supplied but not yet processed), processed (optical-flow evidence generated). validation_records holds TrackingValidationRecord.to_dict() entries produced by scripts/validate_tracking.py or the Motion Tracking web page manual-validation section."
+  "schema_notes": "status values: pending_user_experiment (no video supplied yet), available (video supplied but not yet processed), processed (optical-flow evidence generated). validation_records holds TrackingValidationRecord.to_dict() entries produced by scripts/validate_tracking.py or the Motion Tracking web page manual-validation section. sfm holds the real Phase 6 four-view experiment (module5_6.sfm.register_views output, produced by scripts/process_sfm_experiment.py); any field a given view genuinely lacks (e.g. no calibrated intrinsic matrix) is omitted/None rather than estimated.",
+  "sfm": {
+    "schema_version": 1,
+    "status": "processed",
+    "object_description": "Paperback book, front cover: 'The Tempest' by William Shakespeare, Folger Shakespeare Library Updated Edition (yellow/black textured cover). The front cover face is treated as the flat/2D planar object per the assignment's planar simplification; the spine and page edges visible in oblique views are not part of the tracked plane.",
+    "reference_view_id": "view_1",
+    "reference_view_choice_rationale": "View 1 (IMG_7283.JPG) is the centered/front viewpoint closest to the object (~9 in) with the least perspective foreshortening of the front cover face, per the user-recorded capture notes and visual inspection; used as the default reference per the assignment instructions.",
+    "views": {
+      "view_1": {
+        "view_id": "view_1",
+        "file": "data/sfm/view_1/IMG_7283.JPG",
+        "width": 4284,
+        "height": 5712,
+        "exif_orientation_tag": 6,
+        "real_exif": {
+          "Make": "Apple",
+          "Model": "iPhone 15 Pro Max",
+          "LensModel": "iPhone 15 Pro Max back triple camera 6.765mm f/1.78",
+          "FocalLength": 6.764999865652793,
+          "FocalLengthIn35mmFilm": 24.0,
+          "FNumber": 1.7799999713880652,
+          "ExposureTime": 0.016666666666666666,
+          "ISOSpeedRatings": 400.0,
+          "DateTime": "2026:09:30 15:26:16",
+          "Orientation": 6.0,
+          "BrightnessValue": 1.4316423230742479,
+          "ApertureValue": 1.6637544366004915,
+          "ShutterSpeedValue": 5.906342477805326
+        },
+        "capture_notes_user_recorded": {
+          "orientation": "centered/front view, camera aimed approximately toward the object center",
+          "distance_to_object_m": 0.2286,
+          "distance_to_object_notes": "approximately 9 inches from the object (user-recorded, not measured with an instrument)",
+          "role": "reference view (default; see docs/STRUCTURE_FROM_MOTION_THEORY.md for the choice rationale)"
+        },
+        "boundary_corners_manual_px": [
+          [
+            785.0,
+            1730.0
+          ],
+          [
+            3055.0,
+            1698.0
+          ],
+          [
+            2995.0,
+            5305.0
+          ],
+          [
+            865.0,
+            5165.0
+          ]
+        ],
+        "status": "processed"
+      },
+      "view_2": {
+        "view_id": "view_2",
+        "file": "data/sfm/view_2/IMG_7284.JPG",
+        "width": 4284,
+        "height": 5712,
+        "exif_orientation_tag": 6,
+        "real_exif": {
+          "Make": "Apple",
+          "Model": "iPhone 15 Pro Max",
+          "LensModel": "iPhone 15 Pro Max back triple camera 6.765mm f/1.78",
+          "FocalLength": 6.764999865652793,
+          "FocalLengthIn35mmFilm": 24.0,
+          "FNumber": 1.7799999713880652,
+          "ExposureTime": 0.016666666666666666,
+          "ISOSpeedRatings": 320.0,
+          "DateTime": "2026:09:30 15:26:34",
+          "Orientation": 6.0,
+          "BrightnessValue": 1.7653453829634933,
+          "ApertureValue": 1.6637544366004915,
+          "ShutterSpeedValue": 5.906342477805326
+        },
+        "capture_notes_user_recorded": {
+          "orientation": "left-side viewpoint, camera aimed back toward the object center",
+          "distance_to_object_m": 0.6604,
+          "distance_to_object_notes": "approximately 26 inches from the object (user-recorded, not measured with an instrument)",
+          "role": "registered view"
+        },
+        "boundary_corners_manual_px": [
+          [
+            2450.0,
+            2140.0
+          ],
+          [
+            3580.0,
+            2240.0
+          ],
+          [
+            3470.0,
+            4345.0
+          ],
+          [
+            2410.0,
+            4550.0
+          ]
+        ],
+        "status": "processed"
+      },
+      "view_3": {
+        "view_id": "view_3",
+        "file": "data/sfm/view_3/IMG_7285.JPG",
+        "width": 4284,
+        "height": 5712,
+        "exif_orientation_tag": 6,
+        "real_exif": {
+          "Make": "Apple",
+          "Model": "iPhone 15 Pro Max",
+          "LensModel": "iPhone 15 Pro Max back triple camera 6.765mm f/1.78",
+          "FocalLength": 6.764999865652793,
+          "FocalLengthIn35mmFilm": 24.0,
+          "FNumber": 1.7799999713880652,
+          "ExposureTime": 0.016666666666666666,
+          "ISOSpeedRatings": 320.0,
+          "DateTime": "2026:09:30 15:26:56",
+          "Orientation": 6.0,
+          "BrightnessValue": 1.753379524201754,
+          "ApertureValue": 1.6637544366004915,
+          "ShutterSpeedValue": 5.906342477805326
+        },
+        "capture_notes_user_recorded": {
+          "orientation": "right-side viewpoint, camera aimed back toward the object center",
+          "distance_to_object_m": 0.6604,
+          "distance_to_object_notes": "approximately 26 inches from the object (user-recorded, not measured with an instrument)",
+          "role": "registered view"
+        },
+        "boundary_corners_manual_px": [
+          [
+            1480.0,
+            1885.0
+          ],
+          [
+            2115.0,
+            1785.0
+          ],
+          [
+            2225.0,
+            4225.0
+          ],
+          [
+            1495.0,
+            3760.0
+          ]
+        ],
+        "status": "processed"
+      },
+      "view_4": {
+        "view_id": "view_4",
+        "file": "data/sfm/view_4/IMG_7286.JPG",
+        "width": 4284,
+        "height": 5712,
+        "exif_orientation_tag": 6,
+        "real_exif": {
+          "Make": "Apple",
+          "Model": "iPhone 15 Pro Max",
+          "LensModel": "iPhone 15 Pro Max back triple camera 6.765mm f/1.78",
+          "FocalLength": 6.764999865652793,
+          "FocalLengthIn35mmFilm": 24.0,
+          "FNumber": 1.7799999713880652,
+          "ExposureTime": 0.016666666666666666,
+          "ISOSpeedRatings": 400.0,
+          "DateTime": "2026:09:30 15:27:28",
+          "Orientation": 6.0,
+          "BrightnessValue": 1.4717688865490919,
+          "ApertureValue": 1.6637544366004915,
+          "ShutterSpeedValue": 5.906342477805326
+        },
+        "capture_notes_user_recorded": {
+          "orientation": "vertically displaced / angled viewpoint, camera aimed toward the object",
+          "distance_to_object_m": 0.6604,
+          "distance_to_object_notes": "approximately 26 inches from the object (user-recorded, not measured with an instrument)",
+          "role": "registered view"
+        },
+        "boundary_corners_manual_px": [
+          [
+            1440.0,
+            2280.0
+          ],
+          [
+            2870.0,
+            2400.0
+          ],
+          [
+            2665.0,
+            3760.0
+          ],
+          [
+            1600.0,
+            3560.0
+          ]
+        ],
+        "status": "processed"
+      }
+    },
+    "registrations": {
+      "view_2": {
+        "reference_view_id": "view_1",
+        "orb_params": {
+          "n_features": 2000,
+          "scale_factor": 1.2,
+          "n_levels": 8,
+          "edge_threshold": 31,
+          "fast_threshold": 20
+        },
+        "match_params": {
+          "ratio_test_threshold": 0.75
+        },
+        "homography_params": {
+          "method": "ransac",
+          "ransac_reproj_threshold": 3.0,
+          "max_iters": 2000,
+          "confidence": 0.995
+        },
+        "candidate_match_count": 516,
+        "retained_match_count": 112,
+        "inlier_count": 53,
+        "inlier_ratio": 0.4732142857142857,
+        "homography_view_to_reference": [
+          [
+            1.201221344854071,
+            0.06926693687299869,
+            -2538.199838680171
+          ],
+          [
+            -0.27576898035706154,
+            1.1437477768111421,
+            -466.00064529011627
+          ],
+          [
+            -0.00010774500481609414,
+            7.639348673605868e-06,
+            0.9999999999999999
+          ]
+        ],
+        "reprojection_error_px": {
+          "mean_inliers": 1.5461137195835228,
+          "median_inliers": 1.4948239707479625,
+          "max_inliers": 2.967172384177462,
+          "count_inliers": 53
+        },
+        "boundary_registered_into_reference_px": [
+          [
+            735.0393249313503,
+            1735.8221145475034
+          ],
+          [
+            3036.705721957303,
+            1756.0464428471194
+          ],
+          [
+            2928.7895140779374,
+            5379.295182836348
+          ],
+          [
+            866.8736098261119,
+            5255.4280265911175
+          ]
+        ],
+        "artifacts": {
+          "orb_keypoints": "results/sfm/view_2_orb_keypoints.jpg",
+          "matches_all": "results/sfm/view_2_to_view_1_matches_all.jpg",
+          "matches_inliers": "results/sfm/view_2_to_view_1_matches_inliers.jpg",
+          "registered_warp": "results/sfm/view_2_registered_into_view_1_frame.jpg",
+          "boundary_manual": "results/sfm/view_2_boundary_manual.jpg"
+        }
+      },
+      "view_3": {
+        "reference_view_id": "view_1",
+        "orb_params": {
+          "n_features": 2000,
+          "scale_factor": 1.2,
+          "n_levels": 8,
+          "edge_threshold": 31,
+          "fast_threshold": 20
+        },
+        "match_params": {
+          "ratio_test_threshold": 0.75
+        },
+        "homography_params": {
+          "method": "ransac",
+          "ransac_reproj_threshold": 3.0,
+          "max_iters": 2000,
+          "confidence": 0.995
+        },
+        "candidate_match_count": 409,
+        "retained_match_count": 30,
+        "inlier_count": 7,
+        "inlier_ratio": 0.23333333333333334,
+        "homography_view_to_reference": [
+          [
+            5.916231048208298,
+            -0.3143925574730372,
+            -6450.046180311971
+          ],
+          [
+            1.2753148622230295,
+            2.710262399240862,
+            -4279.020051474201
+          ],
+          [
+            0.00045825896931884206,
+            -4.118486634166902e-05,
+            1.0
+          ]
+        ],
+        "reprojection_error_px": {
+          "mean_inliers": 0.8766976399749175,
+          "median_inliers": 0.7048847500358717,
+          "max_inliers": 1.9544243554015412,
+          "count_inliers": 7
+        },
+        "boundary_registered_into_reference_px": [
+          [
+            1070.4465307435169,
+            1697.6807952756826
+          ],
+          [
+            2902.138438578843,
+            1717.6159568200596
+          ],
+          [
+            2917.8589955321763,
+            5423.33381712755
+          ],
+          [
+            792.4257547358209,
+            5109.101680341899
+          ]
+        ],
+        "artifacts": {
+          "orb_keypoints": "results/sfm/view_3_orb_keypoints.jpg",
+          "matches_all": "results/sfm/view_3_to_view_1_matches_all.jpg",
+          "matches_inliers": "results/sfm/view_3_to_view_1_matches_inliers.jpg",
+          "registered_warp": "results/sfm/view_3_registered_into_view_1_frame.jpg",
+          "boundary_manual": "results/sfm/view_3_boundary_manual.jpg"
+        }
+      },
+      "view_4": {
+        "reference_view_id": "view_1",
+        "orb_params": {
+          "n_features": 2000,
+          "scale_factor": 1.2,
+          "n_levels": 8,
+          "edge_threshold": 31,
+          "fast_threshold": 20
+        },
+        "match_params": {
+          "ratio_test_threshold": 0.75
+        },
+        "homography_params": {
+          "method": "ransac",
+          "ransac_reproj_threshold": 3.0,
+          "max_iters": 2000,
+          "confidence": 0.995
+        },
+        "candidate_match_count": 506,
+        "retained_match_count": 72,
+        "inlier_count": 31,
+        "inlier_ratio": 0.4305555555555556,
+        "homography_view_to_reference": [
+          [
+            1.1340057212751689,
+            -0.2086325729911456,
+            -557.842503438146
+          ],
+          [
+            -0.07920934918943608,
+            1.217266166960261,
+            -1418.2082895163167
+          ],
+          [
+            3.6364027262885125e-06,
+            -0.000119138171314858,
+            1.0
+          ]
+        ],
+        "reprojection_error_px": {
+          "mean_inliers": 1.2854495560524455,
+          "median_inliers": 1.1338974441600298,
+          "max_inliers": 2.890138120893238,
+          "count_inliers": 31
+        },
+        "boundary_registered_into_reference_px": [
+          [
+            817.1242278145216,
+            1694.513023563162
+          ],
+          [
+            3031.084880909348,
+            1761.0643368114754
+          ],
+          [
+            2990.4399198627734,
+            5247.381782483354
+          ],
+          [
+            883.3535234154816,
+            4793.862336080288
+          ]
+        ],
+        "artifacts": {
+          "orb_keypoints": "results/sfm/view_4_orb_keypoints.jpg",
+          "matches_all": "results/sfm/view_4_to_view_1_matches_all.jpg",
+          "matches_inliers": "results/sfm/view_4_to_view_1_matches_inliers.jpg",
+          "registered_warp": "results/sfm/view_4_registered_into_view_1_frame.jpg",
+          "boundary_manual": "results/sfm/view_4_boundary_manual.jpg"
+        }
+      }
+    },
+    "boundary_reconstruction": {
+      "reference_manual_boundary_px": [
+        [
+          785.0,
+          1730.0
+        ],
+        [
+          3055.0,
+          1698.0
+        ],
+        [
+          2995.0,
+          5305.0
+        ],
+        [
+          865.0,
+          5165.0
+        ]
+      ],
+      "consensus_boundary_reference_frame_px": [
+        [
+          851.9025208723472,
+          1714.5039833465871
+        ],
+        [
+          3006.2322603613734,
+          1733.1816841196635
+        ],
+        [
+          2958.0221073682214,
+          5338.752695611813
+        ],
+        [
+          851.9132219943535,
+          5080.848010753326
+        ]
+      ],
+      "consensus_method": "Unweighted mean of View 1's own manually observed boundary and each of View 2/3/4's manually observed boundary transformed into View 1's frame via that view's estimated homography (module5_6.sfm._consensus_boundary).",
+      "artifacts": {
+        "reference_boundary_reconstruction": "results/sfm/reference_boundary_reconstruction.jpg",
+        "view_1_boundary_manual": "results/sfm/view_1_boundary_manual.jpg",
+        "view_1_top_down_rectified": "results/sfm/view_1_top_down_rectified.jpg"
+      }
+    },
+    "mathematical_workout_real_data": {
+      "source_view": "view_2",
+      "reference_view": "view_1",
+      "p_view_xy": [
+        3062.880126953125,
+        3085.920166015625
+      ],
+      "homography_H": [
+        [
+          1.201221344854071,
+          0.06926693687299869,
+          -2538.199838680171
+        ],
+        [
+          -0.27576898035706154,
+          1.1437477768111421,
+          -466.00064529011627
+        ],
+        [
+          -0.00010774500481609414,
+          7.639348673605868e-06,
+          0.9999999999999999
+        ]
+      ],
+      "q_homogeneous_Hp": [
+        1354.7493838797873,
+        2218.866354441155,
+        0.6935643860974214
+      ],
+      "predicted_normalized_xy": [
+        1953.3145170598373,
+        3199.221873150624
+      ],
+      "actual_observed_reference_xy": [
+        1953.3316650390625,
+        3197.491943359375
+      ],
+      "reprojection_error_px": 1.7300147790821565
+    },
+    "summary_path": "results/sfm/sfm_summary.json",
+    "reproduce_with": "python scripts/process_sfm_experiment.py"
+  }
 }

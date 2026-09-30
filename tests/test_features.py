@@ -133,6 +133,44 @@ def test_match_descriptors_max_distance_and_max_matches_filters() -> None:
     assert all(m.distance <= 0.0 for m in strict)
 
 
+def test_match_descriptors_ratio_test_recovers_known_translation() -> None:
+    dx, dy = 5, -3
+    previous = _textured_frame()
+    following = _translated(previous, dx, dy)
+    points1, descriptors1 = detect_and_describe(previous)
+    points2, descriptors2 = detect_and_describe(following)
+    assert points1.shape[0] > 5 and points2.shape[0] > 5
+
+    matches = match_descriptors(descriptors1, descriptors2, params=MatchParams(ratio_test_threshold=0.75))
+    assert len(matches) > 0
+
+    query_xy, train_xy = matched_coordinates(points1, points2, matches)
+    displacement = train_xy - query_xy
+    height, width = previous.shape
+    margin = 20
+    interior = (
+        (query_xy[:, 0] >= margin)
+        & (query_xy[:, 0] <= width - margin)
+        & (query_xy[:, 1] >= margin)
+        & (query_xy[:, 1] <= height - margin)
+    )
+    assert interior.sum() > 0
+    assert float(np.median(displacement[interior, 0])) == pytest.approx(dx, abs=1.5)
+    assert float(np.median(displacement[interior, 1])) == pytest.approx(dy, abs=1.5)
+
+
+def test_match_descriptors_ratio_test_is_stricter_than_unfiltered() -> None:
+    previous = _textured_frame(offset=9)
+    following = _translated(previous, 4, 4)
+    _, descriptors1 = detect_and_describe(previous)
+    _, descriptors2 = detect_and_describe(following)
+
+    unfiltered = match_descriptors(descriptors1, descriptors2, params=MatchParams(cross_check=False))
+    ratio_tested = match_descriptors(descriptors1, descriptors2, params=MatchParams(ratio_test_threshold=0.75))
+
+    assert len(ratio_tested) <= len(unfiltered)
+
+
 def test_matched_coordinates_extracts_expected_pairs() -> None:
     query_points = np.array([[0.0, 0.0], [1.0, 1.0], [2.0, 2.0]], dtype=np.float32)
     train_points = np.array([[10.0, 10.0], [11.0, 11.0]], dtype=np.float32)

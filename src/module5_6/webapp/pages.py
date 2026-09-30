@@ -1,9 +1,12 @@
 """Module 5-6 Streamlit pages and the get_pages provider.
 
-Phase 1 implements the Optical Flow page (Question 1: computing and visualizing dense
-Farneback optical flow on a sampled video interval). Motion Tracking, Bilinear Interpolation
-& Theory, Structure From Motion, and Experiments & Results remain pending-safe placeholders
-for later approved phases (see IMPLEMENTATION_PLAN.md).
+Optical Flow, Motion Tracking, and Bilinear Interpolation & Theory implement Question 1. The
+Structure From Motion page (Question 2) defaults to showing the completed real four-view
+experiment from results/sfm/sfm_summary.json when no images are uploaded (see
+`_render_sfm_bundled_results`), and otherwise runs the same live ORB/homography pipeline on
+whatever planar-object images are uploaded. Experiments & Results consolidates both questions'
+real results. Any page whose real data is genuinely not yet available falls back to an honest
+pending-safe placeholder rather than fabricating a result (see IMPLEMENTATION_PLAN.md).
 """
 from __future__ import annotations
 
@@ -809,13 +812,117 @@ def _theory_page() -> None:
     )
 
 
+_SFM_SUMMARY_PATH = _REPO_ROOT / "results" / "sfm" / "sfm_summary.json"
+
+
+def _render_sfm_bundled_results(summary: dict) -> None:
+    """Render the completed real Phase 6 four-view experiment from results/sfm/sfm_summary.json.
+
+    Reads only the committed summary JSON and JPEG figures under results/sfm/ - never the
+    original data/sfm/view_N/ photos, which stay gitignored (root AGENTS.md "Bundled
+    real-sample fallback"), so this renders the same on a fresh clone as it does locally.
+    """
+    st.caption(summary.get("terminology_note", ""))
+    st.write(summary.get("object_description", ""))
+
+    reference_view_id = summary["reference_view_id"]
+    st.write(f"**Reference view:** {reference_view_id}. {summary.get('reference_view_choice_rationale', '')}")
+
+    st.subheader("Camera / view information (real)")
+    rows = []
+    for view_id, view in summary["views"].items():
+        exif = view.get("real_exif", {})
+        notes = view.get("capture_notes_user_recorded", {})
+        device = " ".join(str(exif[k]) for k in ("Make", "Model") if k in exif) or "Unknown"
+        rows.append(
+            {
+                "View": view_id,
+                "File": Path(view["file"]).name,
+                "Size (px)": f"{view['width']}x{view['height']}",
+                "Device": device,
+                "Focal length (mm)": exif.get("FocalLength"),
+                "f-number": exif.get("FNumber"),
+                "ISO": exif.get("ISOSpeedRatings"),
+                "Approx. position": notes.get("orientation"),
+                "Approx. distance": notes.get("distance_to_object_notes"),
+            }
+        )
+    st.dataframe(rows, width="stretch")
+    reference_kp_path = _REPO_ROOT / f"results/sfm/{reference_view_id}_orb_keypoints.jpg"
+    if reference_kp_path.is_file():
+        st.image(str(reference_kp_path), caption=f"{reference_view_id}: real ORB keypoints", width="stretch")
+
+    for view_id, registration in summary["registrations"].items():
+        st.subheader(f"{view_id} -> {reference_view_id}")
+        reproj = registration["reprojection_error_px"]
+        s1, s2, s3, s4 = st.columns(4)
+        s1.metric("Retained matches", registration["retained_match_count"])
+        s2.metric("RANSAC inliers", registration["inlier_count"])
+        s3.metric("Inlier ratio", f"{100 * registration['inlier_ratio']:.1f}%")
+        s4.metric("Mean reproj. error, inliers (px)", f"{reproj['mean_inliers']:.3f}")
+        st.caption(
+            f"Candidate matches: {registration['candidate_match_count']} -> "
+            f"retained (Lowe's ratio test, threshold "
+            f"{registration['match_params']['ratio_test_threshold']}): "
+            f"{registration['retained_match_count']} -> RANSAC inliers: {registration['inlier_count']}. "
+            f"Median reproj. error (inliers): {reproj['median_inliers']:.3f} px; "
+            f"max: {reproj['max_inliers']:.3f} px."
+        )
+        c1, c2 = st.columns(2)
+        with c1:
+            matches_path = _REPO_ROOT / registration["artifacts"]["matches_inliers"]
+            if matches_path.is_file():
+                st.image(str(matches_path), caption=f"{view_id} | {reference_view_id}: RANSAC-inlier matches", width="stretch")
+        with c2:
+            warp_path = _REPO_ROOT / registration["artifacts"]["registered_warp"]
+            if warp_path.is_file():
+                st.image(str(warp_path), caption=f"{view_id} registered into {reference_view_id}'s frame", width="stretch")
+        st.caption(f"Homography H({view_id} -> {reference_view_id}):")
+        st.code(np.array2string(np.array(registration["homography_view_to_reference"]), precision=4, suppress_small=True))
+
+    st.subheader("Boundary reconstruction")
+    reconstruction_path = _REPO_ROOT / summary["boundary_reconstruction"]["artifacts"]["reference_boundary_reconstruction"]
+    top_down_path = _REPO_ROOT / summary["boundary_reconstruction"]["artifacts"]["view_1_top_down_rectified"]
+    c1, c2 = st.columns(2)
+    with c1:
+        if reconstruction_path.is_file():
+            st.image(
+                str(reconstruction_path),
+                caption="Red: View 1's manual boundary. Yellow: consensus (registered) boundary.",
+                width="stretch",
+            )
+    with c2:
+        if top_down_path.is_file():
+            st.image(str(top_down_path), caption="Normalized top-down rectification of View 1", width="stretch")
+
+    workout = summary.get("mathematical_workout_real_data")
+    if workout:
+        st.subheader("Real mathematical workout (p' ~ H p)")
+        st.write(
+            f"Source point in {workout['source_view']}: "
+            f"`{tuple(round(v, 3) for v in workout['p_view_xy'])}`. "
+            f"Predicted (normalized `q = H p`) in {workout['reference_view']}: "
+            f"`{tuple(round(v, 3) for v in workout['predicted_normalized_xy'])}`. "
+            f"Actual observed point: `{tuple(round(v, 3) for v in workout['actual_observed_reference_xy'])}`. "
+            f"Reprojection error: **{workout['reprojection_error_px']:.3f} px**."
+        )
+        st.caption("Full derivation, independently hand-verified: docs/SFM_CALCULATIONS.md Section 7.")
+
+    st.caption(
+        "Full write-up: docs/EXPERIMENTAL_RESULTS.md Section 9, docs/SFM_CALCULATIONS.md "
+        "Sections 6-7, docs/CAMERA_GEOMETRY.md Section 5. Reproduce with "
+        "`python scripts/process_sfm_experiment.py`."
+    )
+
+
 def _sfm_page() -> None:
     st.header("Structure From Motion")
     st.info(
         "Question 2: four-viewpoint planar homography registration for a flat/2D planar "
         "object - not a dense/full 3D reconstruction (see "
         "docs/STRUCTURE_FROM_MOTION_THEORY.md). Upload real images of a single planar object "
-        "taken from different camera positions."
+        "taken from different camera positions to run the live pipeline below, or leave empty "
+        "to see the completed real four-view experiment."
     )
 
     st.subheader("View images")
@@ -835,6 +942,19 @@ def _sfm_page() -> None:
                     st.error(f"Could not read {view_id}: {exc}")
 
     if len(images_bgr) < 2:
+        if _SFM_SUMMARY_PATH.is_file():
+            st.info(
+                "No images uploaded, so this shows the completed real four-view SfM experiment "
+                "(committed results, not a placeholder - see results/sfm/sfm_summary.json). "
+                "Upload your own images above to run the live pipeline on a different object "
+                "instead; that overrides this view."
+            )
+            try:
+                bundled_summary = json.loads(_SFM_SUMMARY_PATH.read_text())
+                _render_sfm_bundled_results(bundled_summary)
+            except (ValueError, OSError) as exc:
+                st.error(f"Could not load the bundled real SfM results: {exc}")
+            return
         pending_experiment_banner(
             "Upload at least two views (ideally all four) to exercise feature matching and "
             "homography registration. The four required real assignment viewpoints remain "
@@ -1029,8 +1149,8 @@ def _experiments_page() -> None:
     st.header("Experiments & Results")
     st.info(
         "Question 1's professor-required two-consecutive-frame pixel-location validation "
-        "(IMPLEMENTATION_PLAN.md Section 12) and consolidated video/experiment evidence. "
-        "Structure-from-motion experiment results are a later phase."
+        "(IMPLEMENTATION_PLAN.md Section 12) and consolidated video/experiment evidence, plus "
+        "a summary of the completed Question 2 four-view Structure From Motion experiment."
     )
 
     st.subheader("Video status")
@@ -1161,23 +1281,37 @@ def _experiments_page() -> None:
         )
 
     st.subheader("Structure From Motion")
-    st.write(
-        "The reusable planar homography-registration foundation (ORB features, homography "
-        "estimation/reprojection, boundary registration - see the Structure From Motion page "
-        "and docs/STRUCTURE_FROM_MOTION_THEORY.md) is implemented and tested against synthetic "
-        "fixtures. Real four-view experiment results, camera information, and reprojection "
-        "results for the actual assignment object remain a later approved phase."
-    )
-    sfm_views_present = any(
-        find_supplied_video(_REPO_ROOT / "data" / "sfm" / f"view_{i}") is not None for i in range(1, 5)
-    )
-    if sfm_views_present:
-        st.success("At least one real data/sfm/view_N/ image has been supplied.")
+    if _SFM_SUMMARY_PATH.is_file():
+        try:
+            sfm_summary = json.loads(_SFM_SUMMARY_PATH.read_text())
+            st.success(
+                f"Four-view SfM experiment complete - reference view "
+                f"{sfm_summary['reference_view_id']}, "
+                f"{len(sfm_summary['registrations'])} views registered. "
+                "See the Structure From Motion page for the full real results, or "
+                "docs/EXPERIMENTAL_RESULTS.md Section 9 for the written report."
+            )
+            reproj_means = [r["reprojection_error_px"]["mean_inliers"] for r in sfm_summary["registrations"].values()]
+            inlier_counts = [r["inlier_count"] for r in sfm_summary["registrations"].values()]
+            s1, s2 = st.columns(2)
+            s1.metric("Views registered", len(sfm_summary["registrations"]))
+            s2.metric(
+                "Mean reproj. error range (px)",
+                f"{min(reproj_means):.3f}-{max(reproj_means):.3f}",
+            )
+            st.caption(f"RANSAC inlier counts by view: {inlier_counts}")
+        except (ValueError, KeyError, OSError) as exc:
+            st.error(f"Could not read {_SFM_SUMMARY_PATH}: {exc}")
     else:
+        st.write(
+            "The reusable planar homography-registration foundation (ORB features, homography "
+            "estimation/reprojection, boundary registration - see the Structure From Motion "
+            "page and docs/STRUCTURE_FROM_MOTION_THEORY.md) is implemented and tested against "
+            "synthetic fixtures."
+        )
         pending_experiment_banner(
-            "No real four-view SfM images are supplied yet "
-            "(data/sfm/view_1/ through view_4/ are still empty placeholders). "
-            "PENDING USER EXPERIMENT."
+            "No real four-view SfM results are available yet "
+            f"({_SFM_SUMMARY_PATH} not found). PENDING USER EXPERIMENT."
         )
 
 
