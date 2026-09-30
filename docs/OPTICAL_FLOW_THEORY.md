@@ -64,7 +64,8 @@ u = Δx / Δt      v = Δy / Δt
 
 `u` is the horizontal (x-direction) pixel velocity and `v` is the vertical (y-direction) pixel
 velocity of the point between frames. Substituting gives the **optical-flow constraint
-equation**:
+equation**, independently derived in this same form by Horn and Schunck [2] and by Lucas and
+Kanade [1], who differ only in how they resolve the aperture problem below:
 
 ```
 Ix·u + Iy·v + It = 0
@@ -72,9 +73,10 @@ Ix·u + Iy·v + It = 0
 
 This single scalar equation relates the measurable image gradients (`Ix`, `Iy`, `It`) to the
 unknown motion `(u, v)` at that pixel. It is exactly the equation implemented for a full
-`(H, W, 2)` flow field by `module5_6.optical_flow.compute_farneback_flow` (Phase 1) and
-underlies the per-point tracking in `module5_6.tracking.track_points` (Phase 2), even though
-neither function computes `Ix`, `Iy`, `It` explicitly by name - see Section 7 for how the
+`(H, W, 2)` flow field by `module5_6.optical_flow.compute_farneback_flow` (Phase 1), which
+wraps OpenCV's `cv2.calcOpticalFlowFarneback` [3], and underlies the per-point tracking in
+`module5_6.tracking.track_points` (Phase 2), even though neither function computes `Ix`, `Iy`,
+`It` explicitly by name - see `docs/MOTION_TRACKING_DERIVATION.md` Section 6 for how the
 library implementations relate to this pedagogical model.
 
 ## 5. Why one pixel is not enough: one equation, two unknowns
