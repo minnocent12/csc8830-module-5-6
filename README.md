@@ -33,13 +33,15 @@ interactive demonstration, on the Bilinear Interpolation & Theory page. Phase 4 
 professor-required two-consecutive-frame manual pixel-location validation infrastructure:
 `scripts/process_optical_flow.py` and `scripts/validate_tracking.py`, the
 `module5_6.experiment` validation-record/manifest/overlay helpers, a manual-validation section
-on the Motion Tracking page, and a fully implemented Experiments & Results page. **As of this
-phase, neither required assignment video has been supplied** (`data/videos/video_1/` and
-`data/videos/video_2/` contain only their `.gitkeep` placeholders) - the infrastructure is
-complete and tested against synthetic fixtures, but running the actual experiment against the
-two real videos remains PENDING USER EXPERIMENT. Structure from motion and its experimental
-results remain scheduled for later approved phases. No results, pixel coordinates, camera
-parameters, or SfM measurements are fabricated.
+on the Motion Tracking page, and a fully implemented Experiments & Results page. **The two
+required assignment videos have now been supplied and processed**
+(`data/videos/video_1/IMG_7272.MOV`, `data/videos/video_2/IMG_7275.MOV`, each gitignored
+locally-only, not committed): a 30-second optical-flow sample and one manually-validated
+tracking point were completed for each - pixel errors 4.628 px (video_1) and 8.408 px
+(video_2). Full results, evidence figures, and reproduction commands:
+`docs/EXPERIMENTAL_RESULTS.md` and `docs/TRACKING_VALIDATION.md`. Structure from motion and its
+experimental results remain scheduled for later approved phases. No results, pixel coordinates,
+camera parameters, or SfM measurements are fabricated.
 
 ## Setup
 
@@ -95,12 +97,14 @@ The app exposes five pages:
   `docs/MOTION_TRACKING_DERIVATION.md`, `docs/BILINEAR_INTERPOLATION.md`.
 - **Experiments & Results** - shows per-video status (whether a real video has been supplied
   under `data/videos/video_1|video_2/`), any generated optical-flow evidence summary, and a
-  consolidated two-consecutive-frame pixel-location validation table built from uploaded
-  validation-record JSON files (produced by the Motion Tracking page or
-  `scripts/validate_tracking.py`). Shows the required table shape from
-  IMPLEMENTATION_PLAN.md Section 12 with `PENDING USER EXPERIMENT` rows when no records exist
-  yet, which is the current state until the two real videos are supplied. Structure From Motion
-  results remain a pending-safe placeholder for a later approved phase.
+  consolidated two-consecutive-frame pixel-location validation table. Completed records under
+  `results/tracking/<video_id>/*_record.json` (produced by `scripts/validate_tracking.py` or
+  the Motion Tracking page) are loaded automatically; additional record JSON files can be
+  uploaded too. Currently shows both videos as processed and both P1 records complete (pixel
+  errors 4.628 px and 8.408 px - see `docs/EXPERIMENTAL_RESULTS.md`); the table shape still
+  falls back to IMPLEMENTATION_PLAN.md Section 12's `PENDING USER EXPERIMENT` rows whenever no
+  records are found. Structure From Motion results remain a pending-safe placeholder for a
+  later approved phase.
 
 ## Run tests
 

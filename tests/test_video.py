@@ -11,9 +11,11 @@ from module5_6.video import (
     MINIMUM_SAMPLE_DURATION_SECONDS,
     compute_sample_frame_range,
     get_video_metadata,
+    iter_frame_range,
     open_video_capture,
     read_frame_range,
     render_optical_flow_video,
+    render_optical_flow_video_from_path,
 )
 
 _WIDTH, _HEIGHT = 32, 24
@@ -39,6 +41,21 @@ def _textured_frame(size: tuple[int, int] = (48, 48), *, offset: int = 0) -> np.
     rng = np.random.default_rng(offset)
     gray = rng.integers(0, 256, size=size, dtype=np.uint8)
     return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+
+
+def _write_textured_moving_video(path: Path, num_frames: int, *, fps: float = 10.0, size: tuple[int, int] = (64, 48)) -> Path:
+    """A small synthetic video with a shifting textured pattern; software verification only."""
+    width, height = size
+    rng = np.random.default_rng(0)
+    base_gray = rng.integers(0, 256, size=(height, width), dtype=np.uint8)
+    fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+    writer = cv2.VideoWriter(str(path), fourcc, fps, (width, height))
+    assert writer.isOpened(), "synthetic test fixture writer failed to open"
+    for index in range(num_frames):
+        shifted = np.roll(base_gray, index, axis=1)
+        writer.write(cv2.cvtColor(shifted, cv2.COLOR_GRAY2BGR))
+    writer.release()
+    return path
 
 
 def test_open_video_capture_rejects_missing_file(tmp_path: Path) -> None:
@@ -158,3 +175,71 @@ def test_render_optical_flow_video_rejects_unknown_mode(tmp_path: Path) -> None:
     frames = [_textured_frame(offset=i) for i in range(2)]
     with pytest.raises(ValueError, match="unsupported mode"):
         render_optical_flow_video(frames, tmp_path / "out.mp4", fps=10.0, mode="rainbow")
+
+
+def test_iter_frame_range_matches_read_frame_range(tmp_path: Path) -> None:
+    video_path = _write_synthetic_video(tmp_path / "sample.avi", num_frames=20, fps=10.0)
+
+    expected = read_frame_range(video_path, 5, 12)
+    streamed = list(iter_frame_range(video_path, 5, 12))
+
+    assert len(streamed) == len(expected)
+    for expected_frame, streamed_frame in zip(expected, streamed):
+        np.testing.assert_array_equal(expected_frame, streamed_frame)
+
+
+def test_iter_frame_range_rejects_invalid_bounds(tmp_path: Path) -> None:
+    video_path = _write_synthetic_video(tmp_path / "sample.avi", num_frames=5, fps=10.0)
+    with pytest.raises(ValueError, match="end_frame"):
+        list(iter_frame_range(video_path, 3, 3))
+
+
+def test_iter_frame_range_rejects_when_no_frames_available(tmp_path: Path) -> None:
+    video_path = _write_synthetic_video(tmp_path / "sample.avi", num_frames=5, fps=10.0)
+    with pytest.raises(ValueError, match="no frames"):
+        list(iter_frame_range(video_path, 100, 200))
+
+
+def test_render_optical_flow_video_from_path_writes_a_readable_video_with_stats(tmp_path: Path) -> None:
+    """Regression test for the OOM bug found processing real 4K assignment video samples:
+    render_optical_flow_video_from_path must never materialize the full frame range."""
+    video_path = _write_textured_moving_video(tmp_path / "moving.avi", num_frames=10, fps=10.0)
+
+    output_path, stats = render_optical_flow_video_from_path(
+        video_path, 0, 10, tmp_path / "streamed.mp4", fps=10.0, mode="hsv"
+    )
+
+    assert output_path.is_file()
+    capture = cv2.VideoCapture(str(output_path))
+    try:
+        assert capture.isOpened()
+        frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+    finally:
+        capture.release()
+    assert frame_count == 9
+    assert stats.frame_pairs == 9
+    assert stats.mean_magnitude > 0
+    assert stats.max_magnitude >= stats.mean_magnitude >= stats.median_magnitude >= 0
+
+
+def test_render_optical_flow_video_from_path_arrows_mode(tmp_path: Path) -> None:
+    video_path = _write_textured_moving_video(tmp_path / "moving.avi", num_frames=6, fps=10.0)
+
+    output_path, stats = render_optical_flow_video_from_path(
+        video_path, 0, 6, tmp_path / "streamed_arrows.mp4", fps=10.0, mode="arrows"
+    )
+
+    assert output_path.is_file()
+    assert stats.frame_pairs == 5
+
+
+def test_render_optical_flow_video_from_path_rejects_too_few_frames(tmp_path: Path) -> None:
+    video_path = _write_synthetic_video(tmp_path / "sample.avi", num_frames=5, fps=10.0)
+    with pytest.raises(ValueError, match="at least two frames"):
+        render_optical_flow_video_from_path(video_path, 0, 1, tmp_path / "out.mp4", fps=10.0)
+
+
+def test_render_optical_flow_video_from_path_rejects_unknown_mode(tmp_path: Path) -> None:
+    video_path = _write_textured_moving_video(tmp_path / "moving.avi", num_frames=5, fps=10.0)
+    with pytest.raises(ValueError, match="unsupported mode"):
+        render_optical_flow_video_from_path(video_path, 0, 5, tmp_path / "out.mp4", fps=10.0, mode="rainbow")

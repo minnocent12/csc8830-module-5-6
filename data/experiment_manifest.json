@@ -3,29 +3,66 @@
   "videos": {
     "video_1": {
       "video_id": "video_1",
-      "path": null,
-      "status": "pending_user_experiment",
-      "fps": null,
-      "frame_count": null,
-      "width": null,
-      "height": null,
-      "sample_start_seconds": null,
-      "sample_duration_seconds": null,
-      "optical_flow_video_path": null
+      "path": "data/videos/video_1/IMG_7272.MOV",
+      "status": "processed",
+      "fps": 29.996948428440646,
+      "frame_count": 983,
+      "width": 2160,
+      "height": 3840,
+      "sample_start_seconds": 0.0,
+      "sample_duration_seconds": 30.003051881993898,
+      "optical_flow_video_path": "results/optical_flow/video_1/video_1_optical_flow_hsv.mp4"
     },
     "video_2": {
       "video_id": "video_2",
-      "path": null,
-      "status": "pending_user_experiment",
-      "fps": null,
-      "frame_count": null,
-      "width": null,
-      "height": null,
-      "sample_start_seconds": null,
-      "sample_duration_seconds": null,
-      "optical_flow_video_path": null
+      "path": "data/videos/video_2/IMG_7275.MOV",
+      "status": "processed",
+      "fps": 29.991146525011068,
+      "frame_count": 1355,
+      "width": 2160,
+      "height": 3840,
+      "sample_start_seconds": 5.0,
+      "sample_duration_seconds": 30.008856088560883,
+      "optical_flow_video_path": "results/optical_flow/video_2/video_2_optical_flow_hsv.mp4"
     }
   },
-  "validation_records": [],
+  "validation_records": [
+    {
+      "video_id": "video_1",
+      "point_label": "P1",
+      "frame1_index": 275,
+      "frame2_index": 276,
+      "x1": 205.0,
+      "y1": 1705.0,
+      "predicted_x2": 226.3479766845703,
+      "predicted_y2": 1705.4271240234375,
+      "observed_x": 225.0,
+      "observed_y": 1701.0,
+      "status": "complete",
+      "observation_method": "manual visual inspection: side-by-side gridded comparison of Frame 275/276 at 4x-8x zoom, tracking the collar/shoulder silhouette peak against the wall background",
+      "notes": null,
+      "predicted_displacement_u": 21.347976684570312,
+      "predicted_displacement_v": 0.4271240234375,
+      "pixel_error": 4.627793022709919
+    },
+    {
+      "video_id": "video_2",
+      "point_label": "P1",
+      "frame1_index": 1200,
+      "frame2_index": 1201,
+      "x1": 1127.0,
+      "y1": 1964.0,
+      "predicted_x2": 1115.6121826171875,
+      "predicted_y2": 1950.73974609375,
+      "observed_x": 1110.0,
+      "observed_y": 1957.0,
+      "status": "complete",
+      "observation_method": "manual visual inspection: side-by-side gridded comparison of Frame 1200/1201 at 5x zoom, tracking the notch apex of the letter K in the TRAILMAKER logo (where the K's diagonal arms meet its vertical stroke)",
+      "notes": null,
+      "predicted_displacement_u": -11.3878173828125,
+      "predicted_displacement_v": -13.26025390625,
+      "pixel_error": 8.407578289815678
+    }
+  ],
   "schema_notes": "status values: pending_user_experiment (no video supplied yet), available (video supplied but not yet processed), processed (optical-flow evidence generated). validation_records holds TrackingValidationRecord.to_dict() entries produced by scripts/validate_tracking.py or the Motion Tracking web page manual-validation section."
 }

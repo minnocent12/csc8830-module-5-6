@@ -68,3 +68,16 @@ docs/report/figures/*
 !results/sfm/.gitkeep
 !results/metrics/.gitkeep
 !docs/report/figures/.gitkeep
+
+# Phase 4 keeps only the small, derived evidence figures/records/CSV as real submission
+# evidence; the large generated optical-flow videos (tens to hundreds of MB) stay local-only,
+# same as the raw source videos, and are reproducible via scripts/process_optical_flow.py.
+!results/optical_flow/video_1/*.png
+!results/optical_flow/video_1/*.json
+!results/optical_flow/video_2/*.png
+!results/optical_flow/video_2/*.json
+!results/tracking/video_1/*.png
+!results/tracking/video_1/*.json
+!results/tracking/video_2/*.png
+!results/tracking/video_2/*.json
+!results/metrics/*.csv

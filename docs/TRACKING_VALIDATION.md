@@ -7,12 +7,14 @@ IMPLEMENTATION_PLAN.md Section 12 / the Module 5-6 assignment questions:
 > "Pick two consecutive frames from each of the videos and validate the theoretical result of
 > tracking with actual pixel locations."
 
-**Status: PENDING USER EXPERIMENT - real videos not yet supplied.** As of this phase, neither
-`data/videos/video_1/` nor `data/videos/video_2/` contains a real video file (verified with
-`module5_6.experiment.find_supplied_video`, which the Experiments & Results page also uses).
-All of the infrastructure below is implemented and tested against synthetic fixtures only; no
-video identity, frame number, pixel coordinate, or pixel error in this document has been
-measured from a real video, and none is invented here.
+**Status: COMPLETE for one validation point per video.** The two real assignment videos
+(`data/videos/video_1/IMG_7272.MOV`, `data/videos/video_2/IMG_7275.MOV`) have been supplied and
+processed; Section 6 below reports the real, manually-measured results. A second point per
+video was attempted but not included - see Section 6's note on that. No video identity, frame
+number, pixel coordinate, or pixel error in Section 6 is invented; each was produced by the
+procedure in Section 4, verified with `module5_6.experiment.find_supplied_video` and the
+Experiments & Results page, which loads these same records automatically from
+`results/tracking/`.
 
 ## 1. What this validation is, and what it is not
 
@@ -142,13 +144,57 @@ Experiments & Results page.
 
 ## 6. Required results table (IMPLEMENTATION_PLAN.md Section 12)
 
-| Video   | Point | Frame 1 | Predicted Frame 2 | Observed Frame 2 | Pixel Error |
-| ------- | ----- | ------- | ------------------ | ----------------- | ----------- |
-| Video 1 | P1    | Pending | Pending             | Pending            | Pending     |
-| Video 1 | P2    | Pending | Pending             | Pending            | Pending     |
-| Video 2 | P1    | Pending | Pending             | Pending            | Pending     |
-| Video 2 | P2    | Pending | Pending             | Pending            | Pending     |
+Real measurements from `IMG_7272.MOV` (video_1) and `IMG_7275.MOV` (video_2). Coordinates are
+`(x, y)` pixels in the convention of Section 2. Full machine-readable records:
+`results/tracking/video_1/P1_record.json`, `results/tracking/video_2/P1_record.json`;
+consolidated CSV: `results/metrics/phase4_tracking_validation_records.csv`.
 
-This table remains **PENDING USER EXPERIMENT** until the two real assignment videos are
-supplied and the procedure in Section 4 has actually been run against them. See
-`docs/EXPERIMENTAL_RESULTS.md` for the consolidated results write-up once that happens.
+| Video   | Point | Frame 1 -> 2 | Frame 1 coordinate | Predicted Frame 2 | Observed Frame 2 | Pixel Error |
+| ------- | ----- | ------------ | ------------------- | ------------------ | ----------------- | ----------- |
+| Video 1 | P1    | 275 -> 276   | (205.00, 1705.00)    | (226.35, 1705.43)   | (225.00, 1701.00)  | 4.628 px    |
+| Video 2 | P1    | 1200 -> 1201 | (1127.00, 1964.00)   | (1115.61, 1950.74)  | (1110.00, 1957.00) | 8.408 px    |
+
+**Point descriptions (what was tracked and why):**
+
+- **Video 1, P1** - the silhouette peak/notch of the person's shirt collar against the plain
+  wall background, at the moment they walk across frame roughly 9 seconds into the sample
+  (frame 275 of the 30-second, 0-30 s sample). Selected via Shi-Tomasi detection restricted to
+  the person's silhouette, then manually confirmed as a real, high-contrast, unambiguous edge
+  feature. Frame 1 evidence: `results/tracking/video_1/P1_frame1.png`
+  (zoomed: `P1_report_frame1_zoom.png`); predicted-vs-observed overlay:
+  `P1_frame2_validated.png` (zoomed: `P1_report_frame2_zoom.png`).
+- **Video 2, P1** - the notch apex of the letter "K" (where its diagonal arms meet its vertical
+  stroke) in the "TRAILMAKER" logo text on a backpack being held up to the camera, at
+  t=40.01 s in the source video (frame 1200 of 1355; frame 2 is frame 1201 at t=40.05 s).
+  **Note:** this frame pair falls just outside video_2's declared 30-second optical-flow
+  sample window (5.0-35.0 s, Section 1 of `docs/EXPERIMENTAL_RESULTS.md`). Earlier candidate
+  points within that window (the same logo, seen at ~19.8 s and ~28.3 s) were tried first, but
+  under dim indoor lighting at that point in the clip the logo graphic and printed letters were
+  too motion-blurred at native 4K resolution to confidently and reproducibly identify the same
+  point in both frames by eye; frame 1200 (t=40.01 s), a few seconds later in the same source
+  video where the lighting/focus on the backpack was clearer, was used instead. It is still a
+  real frame pair from `IMG_7275.MOV`, satisfying "two consecutive frames from each of the
+  videos" - it is simply not inside the specific 30-second window chosen for the optical-flow
+  visualization deliverable.
+  Selected via Shi-Tomasi detection restricted to the logo-patch region, manually confirmed as
+  a real, high-contrast printed-letter corner. Frame 1 evidence:
+  `results/tracking/video_2/P1_frame1.png` (zoomed: `P1_report_frame1_zoom.png`);
+  predicted-vs-observed overlay: `P1_frame2_validated.png`
+  (zoomed: `P1_report_frame2_zoom.png`).
+
+**On a second point per video:** additional candidate points were evaluated for both videos
+(a second location on the person's shirt for video_1; the printed mountain-graphic edge and a
+seam junction on the backpack for video_2), but each candidate that was tried was either on
+ambiguous background texture or too low-contrast/motion-blurred at native 4K resolution under
+indoor lighting to confidently and reproducibly identify the same point in both frames by eye.
+Per IMPLEMENTATION_PLAN.md Section 12 and the assignment's "at minimum" allowance, one
+defensible real point per video is reported rather than including a second, less reliable one.
+
+**Reading the results:** both errors are small relative to the frame's 2160x3840 resolution and
+each point's own predicted displacement (21.3 px for video_1 P1, 17.5 px for video_2 P1),
+consistent with Lucas-Kanade tracking a high-contrast, well-localized feature well over one
+frame interval (1/30 s) in each case. Video_2's error is roughly double video_1's, plausibly
+because its feature (a small printed letter under dim indoor lighting, close to the camera) is
+smaller and more affected by motion blur than video_1's larger-scale silhouette edge - this is
+an observation about these two specific measurements, not a general claim about either video
+or about Lucas-Kanade tracking overall.

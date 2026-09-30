@@ -1,0 +1,18 @@
+{
+  "video_id": "video_1",
+  "source_video": "data/videos/video_1/IMG_7272.MOV",
+  "fps": 29.996948428440646,
+  "frame_count": 983,
+  "width": 2160,
+  "height": 3840,
+  "sample_start_frame": 0,
+  "sample_end_frame": 900,
+  "sample_frame_count": 900,
+  "sample_duration_seconds": 30.003051881993898,
+  "mode": "hsv",
+  "output_video": "results/optical_flow/video_1/video_1_optical_flow_hsv.mp4",
+  "mean_magnitude": 0.2767761662129518,
+  "median_magnitude": 0.18571722507476807,
+  "max_magnitude": 155.1064910888672,
+  "frame_pairs": 899
+}

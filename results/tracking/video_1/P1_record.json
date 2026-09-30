@@ -1,0 +1,18 @@
+{
+  "video_id": "video_1",
+  "point_label": "P1",
+  "frame1_index": 275,
+  "frame2_index": 276,
+  "x1": 205.0,
+  "y1": 1705.0,
+  "predicted_x2": 226.3479766845703,
+  "predicted_y2": 1705.4271240234375,
+  "observed_x": 225.0,
+  "observed_y": 1701.0,
+  "status": "complete",
+  "observation_method": "manual visual inspection: side-by-side gridded comparison of Frame 275/276 at 4x-8x zoom, tracking the collar/shoulder silhouette peak against the wall background",
+  "notes": null,
+  "predicted_displacement_u": 21.347976684570312,
+  "predicted_displacement_v": 0.4271240234375,
+  "pixel_error": 4.627793022709919
+}

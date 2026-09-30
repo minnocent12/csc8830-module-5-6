@@ -10,6 +10,14 @@ frames (``module5_6.optical_flow``, Phase 1), writes a visualization video, and 
 magnitude/direction summary statistics as JSON. This produces Question 1's required "optical
 flow computed and visualized as a video" evidence for one video.
 
+Frames are streamed directly from the video file one pair at a time
+(``module5_6.video.render_optical_flow_video_from_path``) rather than loaded into memory all at
+once - a real 30-second, 4K, 30fps sample is ~900 frames, and holding every raw frame in a list
+needs tens of gigabytes of RAM. ``median_magnitude`` in the output summary is therefore the
+median of each frame pair's own median (a documented approximation of the true pixel-level
+global median, which is not feasible to compute exactly at this scale); ``mean_magnitude`` and
+``max_magnitude`` remain exact.
+
 This script does NOT by itself satisfy the two-consecutive-frame manual pixel-location
 validation required by IMPLEMENTATION_PLAN.md Section 12 - use ``validate_tracking.py`` for
 that.
@@ -41,18 +49,11 @@ _SRC = Path(__file__).resolve().parents[1] / "src"
 if _SRC.is_dir() and str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from module5_6.io_utils import to_grayscale  # noqa: E402
-from module5_6.optical_flow import (  # noqa: E402
-    compute_farneback_flow,
-    flow_magnitude_angle,
-    summarize_flow_magnitudes,
-)
 from module5_6.video import (  # noqa: E402
     MINIMUM_SAMPLE_DURATION_SECONDS,
     compute_sample_frame_range,
     get_video_metadata,
-    read_frame_range,
-    render_optical_flow_video,
+    render_optical_flow_video_from_path,
 )
 
 
@@ -87,15 +88,12 @@ def main(argv: list[str] | None = None) -> dict:
         duration_seconds=args.duration_seconds,
         minimum_duration_seconds=minimum,
     )
-    frames = read_frame_range(video_path, start_frame, end_frame)
-    grays = [to_grayscale(frame) for frame in frames]
-    flows = [compute_farneback_flow(grays[i], grays[i + 1]) for i in range(len(grays) - 1)]
-    magnitudes = [flow_magnitude_angle(flow)[0] for flow in flows]
-    stats = summarize_flow_magnitudes(magnitudes)
-
+    sample_frame_count = end_frame - start_frame
     output_dir = Path(args.output_dir) / args.video_id
     output_video_path = output_dir / f"{args.video_id}_optical_flow_{args.mode}.mp4"
-    render_optical_flow_video(frames, output_video_path, fps=metadata.fps, mode=args.mode)
+    output_video_path, stats = render_optical_flow_video_from_path(
+        video_path, start_frame, end_frame, output_video_path, fps=metadata.fps, mode=args.mode
+    )
 
     summary = {
         "video_id": args.video_id,
@@ -106,8 +104,8 @@ def main(argv: list[str] | None = None) -> dict:
         "height": metadata.height,
         "sample_start_frame": start_frame,
         "sample_end_frame": end_frame,
-        "sample_frame_count": len(frames),
-        "sample_duration_seconds": len(frames) / metadata.fps,
+        "sample_frame_count": sample_frame_count,
+        "sample_duration_seconds": sample_frame_count / metadata.fps,
         "mode": args.mode,
         "output_video": str(output_video_path),
         "mean_magnitude": stats.mean_magnitude,
