@@ -1,0 +1,18 @@
+{
+  "video_id": "video_2",
+  "point_label": "P1",
+  "frame1_index": 1200,
+  "frame2_index": 1201,
+  "x1": 1127.0,
+  "y1": 1964.0,
+  "predicted_x2": 1115.6121826171875,
+  "predicted_y2": 1950.73974609375,
+  "observed_x": 1110.0,
+  "observed_y": 1957.0,
+  "status": "complete",
+  "observation_method": "manual visual inspection: side-by-side gridded comparison of Frame 1200/1201 at 5x zoom, tracking the notch apex of the letter K in the TRAILMAKER logo (where the K's diagonal arms meet its vertical stroke)",
+  "notes": null,
+  "predicted_displacement_u": -11.3878173828125,
+  "predicted_displacement_v": -13.26025390625,
+  "pixel_error": 8.407578289815678
+}

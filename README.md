@@ -29,11 +29,19 @@ all wired into the Motion Tracking page. Phase 3 adds a from-scratch bilinear-in
 implementation (independent of OpenCV, cross-validated against it), the report-ready
 brightness-constancy/optical-flow-constraint/aperture-problem/Lucas-Kanade derivations, and the
 bilinear-interpolation derivation with a numerical worked example - all presented, with an
-interactive demonstration, on the Bilinear Interpolation & Theory page. Structure from motion
-and all empirical results remain scheduled for later approved phases. No results, pixel
-coordinates, camera parameters, or SfM measurements are fabricated; the two assignment videos
-and their required two-consecutive-frame pixel-location validation remain PENDING USER
-EXPERIMENT until supplied.
+interactive demonstration, on the Bilinear Interpolation & Theory page. Phase 4 adds the
+professor-required two-consecutive-frame manual pixel-location validation infrastructure:
+`scripts/process_optical_flow.py` and `scripts/validate_tracking.py`, the
+`module5_6.experiment` validation-record/manifest/overlay helpers, a manual-validation section
+on the Motion Tracking page, and a fully implemented Experiments & Results page. **The two
+required assignment videos have now been supplied and processed**
+(`data/videos/video_1/IMG_7272.MOV`, `data/videos/video_2/IMG_7275.MOV`, each gitignored
+locally-only, not committed): a 30-second optical-flow sample and one manually-validated
+tracking point were completed for each - pixel errors 4.628 px (video_1) and 8.408 px
+(video_2). Full results, evidence figures, and reproduction commands:
+`docs/EXPERIMENTAL_RESULTS.md` and `docs/TRACKING_VALIDATION.md`. Structure from motion and its
+experimental results remain scheduled for later approved phases. No results, pixel coordinates,
+camera parameters, or SfM measurements are fabricated.
 
 ## Setup
 
@@ -72,8 +80,12 @@ The app exposes five pages:
   detected features, Frame 2 with tracked features, a displacement-vector overlay, a
   point-coordinate/displacement/error table, live tracking statistics, and a trajectory overlay
   across the loaded frames. OpenCV's per-point and forward-backward errors are algorithmic
-  quality signals from whatever video is uploaded, not the assignment's required manual
-  pixel-location validation (a later phase).
+  quality signals from whatever video is uploaded - distinct from the **two-frame
+  pixel-location validation (manual, professor-required)** section below the table, which
+  requires the user to visually inspect a zoomed Frame 2 crop, enter the actual observed
+  coordinate (defaulted to the Frame 1 location, never to the prediction, so it cannot be
+  accepted unedited), and explicitly confirm the observation before a real pixel error is
+  computed, shown, and made downloadable as a JSON record.
 - **Bilinear Interpolation & Theory** - presents the brightness-constancy assumption, the
   first-order Taylor expansion and optical-flow constraint equation, the aperture problem, the
   Lucas-Kanade overdetermined system and least-squares solution (and its relationship to the
@@ -83,8 +95,16 @@ The app exposes five pages:
   result, and a schematic diagram, computed by the same `module5_6.interpolation` functions
   the tests use. Full write-ups: `docs/OPTICAL_FLOW_THEORY.md`,
   `docs/MOTION_TRACKING_DERIVATION.md`, `docs/BILINEAR_INTERPOLATION.md`.
-- Structure From Motion and Experiments & Results remain pending-safe placeholders for later
-  approved phases.
+- **Experiments & Results** - shows per-video status (whether a real video has been supplied
+  under `data/videos/video_1|video_2/`), any generated optical-flow evidence summary, and a
+  consolidated two-consecutive-frame pixel-location validation table. Completed records under
+  `results/tracking/<video_id>/*_record.json` (produced by `scripts/validate_tracking.py` or
+  the Motion Tracking page) are loaded automatically; additional record JSON files can be
+  uploaded too. Currently shows both videos as processed and both P1 records complete (pixel
+  errors 4.628 px and 8.408 px - see `docs/EXPERIMENTAL_RESULTS.md`); the table shape still
+  falls back to IMPLEMENTATION_PLAN.md Section 12's `PENDING USER EXPERIMENT` rows whenever no
+  records are found. Structure From Motion results remain a pending-safe placeholder for a
+  later approved phase.
 
 ## Run tests
 
@@ -96,25 +116,31 @@ correctness against a known synthetic pixel translation, flow visualization, Shi
 detection, Lucas-Kanade tracking correctness against a known synthetic pixel translation,
 valid/invalid track filtering, forward-backward validation, multi-frame trajectory building,
 tracking visualization, bilinear-interpolation weights/values against hand-worked examples and
-against an OpenCV `cv2.remap` cross-check, and the dashboard-compatible page-provider contract.
-They do not count
-as experimental validation - that requires the actual assignment videos (see "Data and video
+against an OpenCV `cv2.remap` cross-check, the Phase 4 experiment-record/manifest/overlay
+helpers (`module5_6.experiment`) including the pixel-error formula and JSON/CSV
+round-tripping, and the dashboard-compatible page-provider contract. They do not count as
+experimental validation - that requires the actual assignment videos (see "Data and video
 requirements").
 
-## Planned reproduction workflow
+## Reproduction workflow
 
-Later phases will add scripts such as:
+Once a real video is supplied, generate its required evidence with:
 
-    python scripts/process_optical_flow.py
-    python scripts/validate_tracking.py
-    python scripts/run_sfm.py
-    python scripts/run_experiments.py
+    python scripts/process_optical_flow.py --video path/to/video_1.mp4 --video-id video_1
+    python scripts/validate_tracking.py prepare --video path/to/video_1.mp4 --video-id video_1 --frame1 <N>
+    python scripts/validate_tracking.py record --record results/tracking/video_1/P1_record.json \
+        --observed-x <X> --observed-y <Y> --video path/to/video_1.mp4
 
-User videos will be supplied under `data/videos/video_1/` and `data/videos/video_2/`, and the
-four SfM viewpoint images under `data/sfm/view_1/` through `data/sfm/view_4/`, or through the
-app. Large video files and user-collected images are not committed by default. Until real
-videos and four-view images exist, tracking errors, camera parameters, and SfM
-reprojection/boundary results remain pending user data collection.
+See `docs/TRACKING_VALIDATION.md` for the full procedure, coordinate convention, and the
+distinction between the algorithmic and manually-observed pixel errors. `scripts/run_sfm.py`
+and `scripts/run_experiments.py` (structure-from-motion and cross-phase report figures) remain
+later-phase additions.
+
+User videos are supplied under `data/videos/video_1/` and `data/videos/video_2/`, and the four
+SfM viewpoint images under `data/sfm/view_1/` through `data/sfm/view_4/`, or through the app.
+Large video files and user-collected images are not committed by default. Until real videos and
+four-view images exist, tracking errors, camera parameters, and SfM reprojection/boundary
+results remain pending user data collection.
 
 ## Data and video requirements
 
@@ -139,9 +165,14 @@ See `data/README.md` for the exact expected layout.
                            backward validation, trajectories, and tracking visualization
       interpolation.py    from-scratch bilinear interpolation (four-neighbor lookup, weights,
                            full breakdown), independent of OpenCV
+      experiment.py       Phase 4 validation-record/manifest/overlay helpers implementing the
+                           predicted-vs-observed pixel-error formula
       SfM modules (added in a later phase)
       webapp/             PageSpec provider and Streamlit UI
-    data/                 user videos and four-view SfM images
+    scripts/
+      process_optical_flow.py   generate optical-flow evidence for one real video
+      validate_tracking.py      two-step manual pixel-location validation (prepare / record)
+    data/                 user videos, four-view SfM images, and experiment_manifest.json
     results/              derived optical-flow/tracking/SfM outputs and metrics
     docs/                 theory, derivations, results, report, and demo notes
     tests/                deterministic automated tests

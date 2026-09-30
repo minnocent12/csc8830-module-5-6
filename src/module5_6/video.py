@@ -7,14 +7,20 @@ video file (for example, on frames the web app already holds in memory).
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Sequence
+from typing import Iterator, Sequence
 
 import cv2
 import numpy as np
 
 from module5_6.io_utils import to_grayscale
-from module5_6.optical_flow import FarnebackParams, compute_farneback_flow, draw_flow_arrows, flow_to_hsv_bgr
-from module5_6.types import VideoMetadata
+from module5_6.optical_flow import (
+    FarnebackParams,
+    compute_farneback_flow,
+    draw_flow_arrows,
+    flow_magnitude_angle,
+    flow_to_hsv_bgr,
+)
+from module5_6.types import FlowStatistics, VideoMetadata
 
 MINIMUM_SAMPLE_DURATION_SECONDS = 30.0
 
@@ -114,6 +120,35 @@ def read_frame_range(path: str | Path, start_frame: int, end_frame: int) -> list
     return frames
 
 
+def iter_frame_range(path: str | Path, start_frame: int, end_frame: int) -> Iterator[np.ndarray]:
+    """Stream BGR frames ``[start_frame, end_frame)`` one at a time, without materializing them.
+
+    Unlike ``read_frame_range``, this is a generator: memory use is O(1) in the number of
+    frames rather than O(n). This matters for real assignment videos - a 30-second, 4K, 30fps
+    sample is ~900 frames, and a Python list of that many raw BGR frames needs tens of
+    gigabytes of RAM (observed to trigger an out-of-memory kill when processing the real
+    IMG_7272.MOV/IMG_7275.MOV videos with the list-based approach).
+    """
+    if start_frame < 0:
+        raise ValueError("start_frame must be non-negative")
+    if end_frame <= start_frame:
+        raise ValueError("end_frame must be greater than start_frame")
+    capture = open_video_capture(path)
+    yielded = 0
+    try:
+        capture.set(cv2.CAP_PROP_POS_FRAMES, float(start_frame))
+        for _ in range(end_frame - start_frame):
+            ok, frame = capture.read()
+            if not ok:
+                break
+            yield frame
+            yielded += 1
+    finally:
+        capture.release()
+    if yielded == 0:
+        raise ValueError(f"no frames could be read in range [{start_frame}, {end_frame})")
+
+
 def open_video_writer(output_path: str | Path, *, fps: float, width: int, height: int) -> tuple[cv2.VideoWriter, Path]:
     """Open a browser-friendly H.264-in-MP4 writer, falling back to MPEG-4 if unavailable.
 
@@ -170,3 +205,77 @@ def render_optical_flow_video(
     finally:
         writer.release()
     return output_path
+
+
+def render_optical_flow_video_from_path(
+    video_path: str | Path,
+    start_frame: int,
+    end_frame: int,
+    output_path: str | Path,
+    *,
+    fps: float,
+    mode: str = "hsv",
+    farneback_params: FarnebackParams | None = None,
+    arrow_step: int = 16,
+    arrow_min_magnitude: float = 1.0,
+) -> tuple[Path, FlowStatistics]:
+    """Stream consecutive-frame Farneback optical flow directly from a video file.
+
+    Unlike ``render_optical_flow_video`` (which takes an already-in-memory ``Sequence`` and
+    suits the web app's small, capped interactive preview), this reads, computes, visualizes,
+    and writes one frame pair at a time via ``iter_frame_range`` - required for real assignment
+    videos, where materializing every raw BGR frame first is not memory-feasible (see
+    ``iter_frame_range``'s docstring).
+
+    Magnitude statistics are aggregated across frame pairs without ever holding every pixel's
+    magnitude in memory at once: ``mean_magnitude`` and ``max_magnitude`` are exact (a running
+    sum/count and a running max), but ``median_magnitude`` is the median *of the per-frame-pair
+    medians* - a documented approximation of the true global median, which would otherwise
+    require holding every pixel's magnitude from every frame pair simultaneously.
+    """
+    if mode not in ("hsv", "arrows"):
+        raise ValueError(f"unsupported mode: {mode!r}, expected 'hsv' or 'arrows'")
+    if end_frame - start_frame < 2:
+        raise ValueError("at least two frames are required to compute optical flow")
+
+    frames = iter_frame_range(video_path, start_frame, end_frame)
+    previous_bgr = next(frames)
+    previous_gray = to_grayscale(previous_bgr)
+    height, width = previous_bgr.shape[:2]
+    writer, output_path = open_video_writer(output_path, fps=fps, width=width, height=height)
+
+    total_sum = 0.0
+    total_count = 0
+    running_max = 0.0
+    per_frame_medians: list[float] = []
+
+    try:
+        for frame in frames:
+            current_gray = to_grayscale(frame)
+            flow = compute_farneback_flow(previous_gray, current_gray, params=farneback_params)
+            magnitude, _ = flow_magnitude_angle(flow)
+
+            total_sum += float(magnitude.sum())
+            total_count += magnitude.size
+            running_max = max(running_max, float(magnitude.max()))
+            per_frame_medians.append(float(np.median(magnitude)))
+
+            if mode == "hsv":
+                visualization = flow_to_hsv_bgr(flow)
+            else:
+                visualization = draw_flow_arrows(frame, flow, step=arrow_step, min_magnitude=arrow_min_magnitude)
+            writer.write(visualization)
+            previous_gray = current_gray
+    finally:
+        writer.release()
+
+    if not per_frame_medians:
+        raise ValueError("at least two frames are required to compute optical flow")
+
+    stats = FlowStatistics(
+        mean_magnitude=total_sum / total_count,
+        median_magnitude=float(np.median(per_frame_medians)),
+        max_magnitude=running_max,
+        frame_pairs=len(per_frame_medians),
+    )
+    return output_path, stats
