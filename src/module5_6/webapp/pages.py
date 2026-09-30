@@ -10,8 +10,10 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import streamlit as st
 
+from module5_6.interpolation import bilinear_interpolate_corners, bilinear_weights
 from module5_6.io_utils import to_grayscale
 from module5_6.optical_flow import (
     compute_farneback_flow,
@@ -49,6 +51,38 @@ _MODULE = "Module 5-6"
 def _bgr_to_rgb(image):
     """Reverse the channel order for display with st.image; never mutates the input."""
     return image[:, :, ::-1]
+
+
+def _bilinear_diagram(i00: float, i10: float, i01: float, i11: float, alpha: float, beta: float):
+    """A schematic (not real-image) diagram of the four corners and the query point."""
+    fig, ax = plt.subplots(figsize=(4.2, 4.2))
+    corners = {
+        (0.0, 0.0): ("I00", i00),
+        (1.0, 0.0): ("I10", i10),
+        (0.0, 1.0): ("I01", i01),
+        (1.0, 1.0): ("I11", i11),
+    }
+    for (cx, cy), (label, value) in corners.items():
+        ax.scatter([cx], [cy], s=140, color="tab:blue", zorder=3)
+        offset = (10, 10) if cy == 0.0 else (10, -16)
+        ax.annotate(f"{label} = {value:g}", (cx, cy), textcoords="offset points", xytext=offset)
+    ax.plot([0, 1, 1, 0, 0], [0, 0, 1, 1, 0], color="gray", linewidth=1)
+    ax.scatter([alpha], [beta], s=160, color="tab:red", marker="x", zorder=4)
+    ax.annotate(
+        f"(x, y): alpha={alpha:.2f}, beta={beta:.2f}",
+        (alpha, beta),
+        textcoords="offset points",
+        xytext=(10, -4),
+        color="tab:red",
+    )
+    ax.set_xlim(-0.3, 1.3)
+    ax.set_ylim(1.3, -0.3)  # inverted: y increases downward, matching image row convention
+    ax.set_xlabel("x  (alpha = x - x0)")
+    ax.set_ylabel("y  (beta = y - y0)")
+    ax.set_title("Four neighboring pixels and the query point (schematic)")
+    ax.set_aspect("equal")
+    fig.tight_layout()
+    return fig
 
 
 def _optical_flow_page() -> None:
@@ -528,11 +562,118 @@ def _motion_tracking_page() -> None:
 
 
 def _theory_page() -> None:
-    foundation_page(
-        "Bilinear Interpolation & Theory",
-        "Question 1: the brightness-constancy derivation, the optical-flow constraint "
-        "equation, the aperture problem, the Lucas-Kanade least-squares derivation, and an "
-        "interactive bilinear-interpolation demonstration will be added in a later phase.",
+    st.header("Bilinear Interpolation & Theory")
+    st.info(
+        "Question 1's required theory: brightness constancy through the optical-flow "
+        "constraint equation and the aperture problem, the Lucas-Kanade least-squares "
+        "tracking derivation and its relationship to the Phase 2 OpenCV implementation, and "
+        "the bilinear-interpolation derivation with an interactive demonstration. Full "
+        "write-ups: docs/OPTICAL_FLOW_THEORY.md, docs/MOTION_TRACKING_DERIVATION.md, "
+        "docs/BILINEAR_INTERPOLATION.md."
+    )
+
+    st.subheader("1. Brightness constancy")
+    st.markdown(
+        "A point's brightness is assumed not to change as it moves between frames - only its "
+        "position changes. If a point at `(x, y)` at time `t` moves by `(Δx, Δy)` "
+        "over a small interval `Δt`:"
+    )
+    st.latex(r"I(x, y, t) = I(x + \Delta x,\; y + \Delta y,\; t + \Delta t)")
+
+    st.subheader("2. First-order Taylor expansion and the optical-flow constraint")
+    st.markdown("Expanding the right-hand side to first order:")
+    st.latex(
+        r"I(x+\Delta x,\, y+\Delta y,\, t+\Delta t) \approx "
+        r"I(x,y,t) + I_x \Delta x + I_y \Delta y + I_t \Delta t"
+    )
+    st.markdown(
+        "Subtracting `I(x, y, t)` from both sides, dividing by `Δt`, and defining "
+        "`u = Δx / Δt`, `v = Δy / Δt` gives the **optical-flow constraint "
+        "equation**:"
+    )
+    st.latex(r"I_x u + I_y v + I_t = 0")
+    st.caption("Full step-by-step derivation: docs/OPTICAL_FLOW_THEORY.md, Sections 2-4.")
+
+    st.subheader("3. The aperture problem")
+    st.markdown(
+        "One pixel gives one equation, `Ix*u + Iy*v = -It`, in two unknowns `(u, v)`: only "
+        "the motion component along the local gradient direction is constrained. Lucas and "
+        "Kanade [1] resolve this by assuming neighboring pixels in a small window share "
+        "approximately the same motion."
+    )
+
+    st.subheader("4. Lucas-Kanade: overdetermined system and least squares")
+    st.markdown(
+        "Stacking the constraint equation over `n` pixels `p_1, ..., p_n` in a window gives "
+        "an overdetermined linear system `A*v = b`:"
+    )
+    st.latex(
+        r"A = \begin{bmatrix} I_x(p_1) & I_y(p_1) \\ I_x(p_2) & I_y(p_2) \\ "
+        r"\vdots & \vdots \\ I_x(p_n) & I_y(p_n) \end{bmatrix}, \qquad "
+        r"b = \begin{bmatrix} -I_t(p_1) \\ -I_t(p_2) \\ \vdots \\ -I_t(p_n) \end{bmatrix}"
+    )
+    st.markdown("Solved by least squares via the normal equations:")
+    st.latex(r"A^T A\, v = A^T b \qquad\Longrightarrow\qquad v = (A^T A)^{-1} A^T b")
+    st.markdown(
+        "valid when `A^T A` (the structure tensor) is invertible - i.e. both eigenvalues are "
+        "large enough. This is the same criterion `cv2.goodFeaturesToTrack` uses to select "
+        "trackable corners and that `calcOpticalFlowPyrLK`'s `minEigThreshold` uses to reject "
+        "unreliable tracks (Phase 2, `module5_6.tracking`). OpenCV's implementation is "
+        "pyramidal and iterative - it does not execute the equations above literally line by "
+        "line, but solves this same least-squares model at each pyramid level. Full "
+        "explanation: docs/MOTION_TRACKING_DERIVATION.md."
+    )
+
+    st.subheader("5. Bilinear interpolation: derivation from two 1D interpolations")
+    st.markdown(
+        "A tracked point's location is generally subpixel/fractional, not aligned to the "
+        "integer pixel grid. Bilinear interpolation estimates a value there from its four "
+        "integer-pixel neighbors `I00, I10, I01, I11`, with fractional offsets "
+        "`α = x - x0` and `β = y - y0`. Interpolating along `x` at each known row, "
+        "then along `y` between those two results (full derivation: "
+        "docs/BILINEAR_INTERPOLATION.md):"
+    )
+    st.latex(r"R_0 = (1-\alpha) I_{00} + \alpha I_{10}, \qquad R_1 = (1-\alpha) I_{01} + \alpha I_{11}")
+    st.latex(r"I(x,y) = (1-\beta) R_0 + \beta R_1")
+    st.markdown("which expands to the final weighted expression:")
+    st.latex(
+        r"I(x,y) = (1-\alpha)(1-\beta) I_{00} + \alpha(1-\beta) I_{10} "
+        r"+ (1-\alpha)\beta I_{01} + \alpha\beta I_{11}"
+    )
+
+    st.subheader("6. Interactive bilinear interpolation demonstration")
+    st.caption(
+        "Configure the four neighboring pixel intensities and the fractional coordinate; the "
+        "weights and interpolated value below are computed live by "
+        "module5_6.interpolation.bilinear_interpolate_corners - the same function the tests "
+        "and this page's derivation both rely on. This is a mathematical demonstration, not "
+        "assignment experimental evidence."
+    )
+    c1, c2 = st.columns(2)
+    with c1:
+        i00 = st.number_input("I00 (top-left)", value=10.0, step=1.0, key="theory_i00")
+        i01 = st.number_input("I01 (bottom-left)", value=30.0, step=1.0, key="theory_i01")
+    with c2:
+        i10 = st.number_input("I10 (top-right)", value=20.0, step=1.0, key="theory_i10")
+        i11 = st.number_input("I11 (bottom-right)", value=40.0, step=1.0, key="theory_i11")
+    alpha = float(st.slider("alpha = x - x0", 0.0, 1.0, 0.3, step=0.01, key="theory_alpha"))
+    beta = float(st.slider("beta = y - y0", 0.0, 1.0, 0.7, step=0.01, key="theory_beta"))
+
+    weight_00, weight_10, weight_01, weight_11 = bilinear_weights(alpha, beta)
+    value = bilinear_interpolate_corners(i00, i10, i01, i11, alpha, beta)
+
+    w1, w2, w3, w4, w5 = st.columns(5)
+    w1.metric("w00", f"{weight_00:.3f}")
+    w2.metric("w10", f"{weight_10:.3f}")
+    w3.metric("w01", f"{weight_01:.3f}")
+    w4.metric("w11", f"{weight_11:.3f}")
+    w5.metric("I(x, y)", f"{value:.3f}")
+    st.caption(f"Weights sum to {weight_00 + weight_10 + weight_01 + weight_11:.6f} (expected 1.0).")
+
+    st.pyplot(_bilinear_diagram(i00, i10, i01, i11, alpha, beta))
+    st.caption(
+        "Default values (I00=10, I10=20, I01=30, I11=40, alpha=0.3, beta=0.7) reproduce the "
+        "worked example in docs/BILINEAR_INTERPOLATION.md Section 4 (expected result: 27.0)."
     )
 
 
