@@ -39,9 +39,16 @@ required assignment videos have now been supplied and processed**
 locally-only, not committed): a 30-second optical-flow sample and one manually-validated
 tracking point were completed for each - pixel errors 4.628 px (video_1) and 8.408 px
 (video_2). Full results, evidence figures, and reproduction commands:
-`docs/EXPERIMENTAL_RESULTS.md` and `docs/TRACKING_VALIDATION.md`. Structure from motion and its
-experimental results remain scheduled for later approved phases. No results, pixel coordinates,
-camera parameters, or SfM measurements are fabricated.
+`docs/EXPERIMENTAL_RESULTS.md` and `docs/TRACKING_VALIDATION.md`. Phase 5 adds the reusable
+planar Structure-From-Motion foundation for Question 2: ORB feature detection/matching
+(`module5_6.features`), homography estimation/reprojection with RANSAC outlier rejection
+(`module5_6.homography`), camera/view metadata with no fabricated physical parameters
+(`module5_6.camera`), homogeneous-coordinate/boundary-transform helpers (`module5_6.geometry`),
+and a multi-view registration coordinator (`module5_6.sfm`) - all wired into the Structure From
+Motion page. **The four required assignment viewpoints have not been supplied yet**
+(`data/sfm/view_1/` through `view_4/` contain only `.gitkeep`), so this is tested foundation
+only, not the real four-view experiment - see `docs/STRUCTURE_FROM_MOTION_THEORY.md`. No
+results, pixel coordinates, camera parameters, or SfM measurements are fabricated.
 
 ## Setup
 
@@ -95,6 +102,17 @@ The app exposes five pages:
   result, and a schematic diagram, computed by the same `module5_6.interpolation` functions
   the tests use. Full write-ups: `docs/OPTICAL_FLOW_THEORY.md`,
   `docs/MOTION_TRACKING_DERIVATION.md`, `docs/BILINEAR_INTERPOLATION.md`.
+- **Structure From Motion** - upload up to four images of one flat/2D planar object. Controls:
+  per-view optional camera/device metadata (device, focal length, distance, orientation, notes
+  - never inferred from image size), a reference-view selector, ORB/homography settings
+  (max features; RANSAC vs. all-points; RANSAC threshold), and optional per-view boundary
+  corner coordinates. Outputs: detected ORB features on the reference view, matched-point
+  overlays for each other view, inlier counts, mean reprojection error (over inliers), the
+  estimated homography matrix, and (when boundary corners were entered) the registered
+  boundary overlaid on the reference view. This is a 2D planar homography registration, not a
+  dense/full 3D reconstruction - see `docs/STRUCTURE_FROM_MOTION_THEORY.md`. Computed live from
+  whatever images are uploaded; the real four-view assignment experiment remains
+  PENDING USER EXPERIMENT until `data/sfm/view_1/` through `view_4/` are supplied.
 - **Experiments & Results** - shows per-video status (whether a real video has been supplied
   under `data/videos/video_1|video_2/`), any generated optical-flow evidence summary, and a
   consolidated two-consecutive-frame pixel-location validation table. Completed records under
@@ -103,8 +121,7 @@ The app exposes five pages:
   uploaded too. Currently shows both videos as processed and both P1 records complete (pixel
   errors 4.628 px and 8.408 px - see `docs/EXPERIMENTAL_RESULTS.md`); the table shape still
   falls back to IMPLEMENTATION_PLAN.md Section 12's `PENDING USER EXPERIMENT` rows whenever no
-  records are found. Structure From Motion results remain a pending-safe placeholder for a
-  later approved phase.
+  records are found. Also reports whether any real `data/sfm/view_N/` image has been supplied.
 
 ## Run tests
 
@@ -118,8 +135,16 @@ valid/invalid track filtering, forward-backward validation, multi-frame trajecto
 tracking visualization, bilinear-interpolation weights/values against hand-worked examples and
 against an OpenCV `cv2.remap` cross-check, the Phase 4 experiment-record/manifest/overlay
 helpers (`module5_6.experiment`) including the pixel-error formula and JSON/CSV
-round-tripping, and the dashboard-compatible page-provider contract. They do not count as
-experimental validation - that requires the actual assignment videos (see "Data and video
+round-tripping, ORB feature detection/matching against a known synthetic pixel translation
+(`module5_6.features`), homography estimation (identity/translation/rotation-scale/known
+projective transform/exact four-point/noisy correspondences/RANSAC outlier rejection/degenerate
+rejection) and reprojection error against hand-worked formulas (`module5_6.homography`),
+camera/view metadata validation with no fabricated physical-parameter defaults
+(`module5_6.camera`), homogeneous-coordinate and boundary-transform geometry
+(`module5_6.geometry`), end-to-end synthetic view registration recovering a known homography
+from warped images (`module5_6.sfm`), and the dashboard-compatible page-provider contract.
+They do not count as experimental validation - that requires the actual assignment videos and
+four-view images (see "Data and video
 requirements").
 
 ## Reproduction workflow
@@ -167,7 +192,16 @@ See `data/README.md` for the exact expected layout.
                            full breakdown), independent of OpenCV
       experiment.py       Phase 4 validation-record/manifest/overlay helpers implementing the
                            predicted-vs-observed pixel-error formula
-      SfM modules (added in a later phase)
+      features.py         ORB feature detection and descriptor matching (automatic planar
+                           point correspondences)
+      homography.py       planar homography estimation (RANSAC/LMedS/all-points), point
+                           transform, and per-point/mean reprojection error
+      camera.py           per-view camera/device metadata - every physical parameter defaults
+                           to None, never fabricated or inferred from image size
+      geometry.py         homogeneous-coordinate conversion and homography-based point/
+                           boundary transforms
+      sfm.py              coordinates features/homography/geometry into multi-view planar
+                           registration (not dense/full 3D reconstruction)
       webapp/             PageSpec provider and Streamlit UI
     scripts/
       process_optical_flow.py   generate optical-flow evidence for one real video

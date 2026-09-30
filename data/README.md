@@ -8,7 +8,13 @@
   and full results, and "Preserve raw videos" in the root task instructions for why they stay
   local-only and untouched.
 - `sfm/view_1/` through `sfm/view_4/` will hold the four-viewpoint images of the chosen flat/2D
-  planar object, per Question 2 - still pending for a later phase.
+  planar object, per Question 2 - still empty placeholders (only `.gitkeep`). The reusable
+  registration software (`module5_6.features`, `homography`, `camera`, `geometry`, `sfm`) is
+  implemented and tested against synthetic fixtures (Phase 5); see
+  `docs/STRUCTURE_FROM_MOTION_THEORY.md`. Each view's real camera information (device, focal
+  length, position, orientation, distance to object), once actually known, is recorded with
+  `module5_6.camera.ViewMetadata` - every physical field defaults to `None` and is never
+  inferred from image dimensions.
 - Synthetic arrays used by automated tests are fixtures, not experimental evidence.
 
 Until the four-view SfM images are supplied, structure-from-motion results remain
