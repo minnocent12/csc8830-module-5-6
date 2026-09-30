@@ -1,0 +1,123 @@
+@page {
+  size: Letter;
+  margin: 22mm 20mm;
+}
+body {
+  font-family: "Georgia", "Times New Roman", serif;
+  font-size: 11.5pt;
+  line-height: 1.5;
+  color: #111;
+  max-width: 720px;
+  margin: 0 auto;
+}
+h1, h2, h3, h4 {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  color: #0d1b2a;
+  page-break-after: avoid;
+}
+h1 { font-size: 20pt; margin-top: 30px; border-bottom: 2px solid #0d1b2a; padding-bottom: 4px; }
+h2 { font-size: 15pt; margin-top: 24px; }
+h3 { font-size: 12.5pt; margin-top: 18px; }
+h4 { font-size: 11.5pt; margin-top: 14px; font-style: italic; }
+p { text-align: justify; }
+code, pre {
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 9.5pt;
+  background: #f4f4f4;
+  border-radius: 3px;
+}
+pre {
+  padding: 8px 10px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 14px 0;
+  font-size: 10pt;
+}
+th, td {
+  border: 1px solid #999;
+  padding: 5px 8px;
+  text-align: left;
+}
+th {
+  background: #e8edf2;
+}
+figure {
+  margin: 16px 0;
+  text-align: center;
+  page-break-inside: avoid;
+}
+figure img {
+  max-width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+  border: 1px solid #ccc;
+}
+figcaption {
+  font-size: 9.5pt;
+  color: #333;
+  margin-top: 6px;
+  font-style: italic;
+}
+.figure-row {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.figure-row figure {
+  flex: 1 1 30%;
+  min-width: 150px;
+}
+blockquote {
+  border-left: 3px solid #0d1b2a;
+  margin: 12px 0;
+  padding: 4px 14px;
+  background: #f8f9fb;
+  font-size: 10.5pt;
+}
+hr {
+  border: none;
+  border-top: 1px solid #ccc;
+  margin: 26px 0;
+}
+.titlepage {
+  text-align: center;
+  padding-top: 22%;
+  page-break-after: always;
+}
+.titlepage h1 {
+  border: none;
+  font-size: 24pt;
+  margin-bottom: 6px;
+}
+.titlepage .subtitle {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 15pt;
+  color: #444;
+  margin-bottom: 40px;
+}
+.titlepage .meta {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 11.5pt;
+  color: #333;
+  line-height: 1.9;
+}
+.page-break {
+  page-break-before: always;
+}
+.status-complete {
+  color: #0b6b2b;
+  font-weight: bold;
+}
+.status-unknown {
+  color: #8a5a00;
+  font-weight: bold;
+}
+.small-note {
+  font-size: 9.5pt;
+  color: #444;
+}
