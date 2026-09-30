@@ -15,6 +15,12 @@ import tempfile
 from pathlib import Path
 
 import cv2
+import matplotlib
+
+matplotlib.use("Agg")  # non-interactive backend: Streamlit's script runner executes pages on a
+# worker thread, and matplotlib's platform-default interactive backend (e.g. macOS's "macosx")
+# cannot create a GUI figure manager off the main thread and raises RuntimeError - Agg has no
+# such restriction and is the standard choice for any web-server plotting use case.
 import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
@@ -67,6 +73,8 @@ from module5_6.webapp.ui import IMAGE_TYPES, VIDEO_TYPES, pending_experiment_ban
 
 _MODULE = "Module 5-6"
 _REPO_ROOT = Path(__file__).resolve().parents[3]
+_OPTICAL_FLOW_RESULTS_DIR = _REPO_ROOT / "results" / "optical_flow"
+_TRACKING_RESULTS_DIR = _REPO_ROOT / "results" / "tracking"
 
 
 def _bgr_to_rgb(image):
@@ -116,20 +124,139 @@ def _bilinear_diagram(i00: float, i10: float, i01: float, i11: float, alpha: flo
     return fig
 
 
+def _render_optical_flow_bundled_results() -> bool:
+    """Render committed real optical-flow evidence for Video 1/2, if available.
+
+    Reads only results/optical_flow/<video_id>/ (committed JSON summary + evidence PNGs) -
+    never the gitignored raw source video - so this renders identically on a fresh clone or
+    the public deployment (root AGENTS.md "Bundled real-sample fallback"). Returns True if at
+    least one video's evidence was rendered.
+    """
+    rendered_any = False
+    for video_id in ("video_1", "video_2"):
+        result_dir = _OPTICAL_FLOW_RESULTS_DIR / video_id
+        summary_path = result_dir / f"{video_id}_optical_flow_summary.json"
+        if not summary_path.is_file():
+            continue
+        try:
+            summary = json.loads(summary_path.read_text())
+        except (ValueError, OSError) as exc:
+            st.error(f"Could not read {summary_path}: {exc}")
+            continue
+        rendered_any = True
+        st.subheader(f"{video_id}: {Path(summary['source_video']).name}")
+        st.caption(
+            f"{summary['width']}x{summary['height']} px | {summary['fps']:.2f} fps | "
+            f"sample frames {summary['sample_start_frame']}-{summary['sample_end_frame']} "
+            f"({summary['sample_duration_seconds']:.1f} s, {summary['frame_pairs']} frame pairs)"
+        )
+        original = sorted(result_dir.glob(f"{video_id}_evidence_original_frame*.png"))
+        hsv_flow = sorted(result_dir.glob(f"{video_id}_evidence_hsv_flow_*.png"))
+        arrows = sorted(result_dir.glob(f"{video_id}_evidence_arrows_*.png"))
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            if original:
+                st.image(str(original[0]), caption="Original frame", width="stretch")
+        with c2:
+            if hsv_flow:
+                st.image(str(hsv_flow[0]), caption="HSV flow: hue = direction, value = magnitude", width="stretch")
+        with c3:
+            if arrows:
+                st.image(str(arrows[0]), caption="Vector/arrow overlay", width="stretch")
+        s1, s2, s3 = st.columns(3)
+        s1.metric("Mean |flow| (px)", f"{summary['mean_magnitude']:.3f}")
+        s2.metric("Median |flow| (px)", f"{summary['median_magnitude']:.3f}")
+        s3.metric("Max |flow| (px)", f"{summary['max_magnitude']:.3f}")
+    if rendered_any:
+        st.caption(
+            "Full write-up, both videos, and what these statistics do/do not support: "
+            "docs/EXPERIMENTAL_RESULTS.md Sections 1-4. Reproduce with "
+            "scripts/process_optical_flow.py."
+        )
+    return rendered_any
+
+
+def _render_tracking_bundled_results() -> bool:
+    """Render the committed real two-consecutive-frame validation records for Video 1/2.
+
+    Reads only results/tracking/<video_id>/ (committed JSON record + evidence PNGs) - never
+    the gitignored raw source video - so this renders identically on a fresh clone or the
+    public deployment (root AGENTS.md "Bundled real-sample fallback").
+    """
+    rendered_any = False
+    for video_id in ("video_1", "video_2"):
+        result_dir = _TRACKING_RESULTS_DIR / video_id
+        record_paths = sorted(result_dir.glob("*_record.json")) if result_dir.is_dir() else []
+        for record_path in record_paths:
+            try:
+                record = TrackingValidationRecord.from_dict(json.loads(record_path.read_text()))
+            except (ValueError, KeyError, TypeError, OSError) as exc:
+                st.error(f"Could not read {record_path}: {exc}")
+                continue
+            if record.pixel_error is None:
+                continue
+            rendered_any = True
+            st.subheader(f"{video_id}: point {record.point_label}")
+            frame1_path = result_dir / f"{record.point_label}_frame1.png"
+            validated_path = result_dir / f"{record.point_label}_frame2_validated.png"
+            c1, c2 = st.columns(2)
+            with c1:
+                if frame1_path.is_file():
+                    st.image(
+                        str(frame1_path),
+                        caption=f"Frame {record.frame1_index}: P = ({record.x1:.1f}, {record.y1:.1f})",
+                        width="stretch",
+                    )
+            with c2:
+                if validated_path.is_file():
+                    st.image(
+                        str(validated_path),
+                        caption=f"Frame {record.frame2_index}: predicted (red) vs. observed (green)",
+                        width="stretch",
+                    )
+            s1, s2, s3 = st.columns(3)
+            s1.metric("Predicted Frame 2", f"({record.predicted_x2:.1f}, {record.predicted_y2:.1f})")
+            s2.metric("Observed Frame 2 (manual)", f"({record.observed_x:.1f}, {record.observed_y:.1f})")
+            s3.metric("Pixel error e (px)", f"{record.pixel_error:.3f}")
+            st.caption(f"Observation method: {record.observation_method}")
+    if rendered_any:
+        st.caption(
+            "'Pixel error' above is the professor-required comparison between the algorithmic "
+            "Lucas-Kanade prediction and a manually observed Frame 2 location "
+            "(IMPLEMENTATION_PLAN.md Section 12) - see docs/TRACKING_VALIDATION.md for the "
+            "full procedure and docs/EXPERIMENTAL_RESULTS.md Section 5 for the written report. "
+            "Reproduce with scripts/validate_tracking.py."
+        )
+    return rendered_any
+
+
 def _optical_flow_page() -> None:
     st.header("Optical Flow")
     st.info(
         "Question 1: upload a video to compute dense Farneback optical flow over a sampled "
         "interval and visualize it as a video. Sparse Lucas-Kanade point tracking is on the "
-        "Motion Tracking page (a later phase)."
+        "Motion Tracking page."
     )
     upload = st.file_uploader("Video", type=VIDEO_TYPES)
     if upload is None:
-        pending_experiment_banner(
-            "Upload a video to compute optical flow. The two videos required by the "
-            "assignment (each with a 30-second sample containing motion) are PENDING USER "
-            "EXPERIMENT until supplied."
+        has_bundled = any(
+            (_OPTICAL_FLOW_RESULTS_DIR / v / f"{v}_optical_flow_summary.json").is_file()
+            for v in ("video_1", "video_2")
         )
+        if has_bundled:
+            st.info(
+                "No video uploaded, so this shows the completed real optical-flow evidence for "
+                "both required assignment videos (committed results, not a placeholder). "
+                "Upload your own video above to run the live pipeline on it instead; that "
+                "overrides this view."
+            )
+            _render_optical_flow_bundled_results()
+        else:
+            pending_experiment_banner(
+                "Upload a video to compute optical flow. The two videos required by the "
+                "assignment (each with a 30-second sample containing motion) are PENDING USER "
+                "EXPERIMENT until supplied."
+            )
         return
 
     suffix = Path(upload.name).suffix or ".mp4"
@@ -197,8 +324,9 @@ def _optical_flow_page() -> None:
                 value=90,
                 step=10,
                 help=(
-                    "Bounds compute time for this live demo. A later phase's scripts will "
-                    "process the full required sample for the actual assignment submission."
+                    "Bounds compute time for this live demo. scripts/process_optical_flow.py "
+                    "processes the full required sample for the actual assignment submission "
+                    "(see the completed results above when no video is uploaded)."
                 ),
             )
         )
@@ -244,7 +372,7 @@ def _optical_flow_page() -> None:
                 f"Interactive preview capped to the first {len(frames)} frames "
                 f"(~{len(frames) / metadata.fps:.1f} s) of the requested "
                 f"{duration_seconds:.1f} s sample. This cap affects only this live demo, not "
-                "a later phase's full-sample processing."
+                "scripts/process_optical_flow.py's full-sample processing."
             )
         if not enforce_minimum and duration_seconds < MINIMUM_SAMPLE_DURATION_SECONDS:
             st.warning(
@@ -328,9 +456,10 @@ def _optical_flow_page() -> None:
         c4.metric("Max |flow| (px)", f"{stats.max_magnitude:.3f}")
         st.caption(
             "These statistics are computed live from whatever video was uploaded above; they "
-            "are exploratory tooling, not the assignment's required two-frame pixel tracking "
-            "validation (a later approved phase). The two required assignment videos remain "
-            "PENDING USER EXPERIMENT until supplied."
+            "are exploratory tooling for that upload, not the assignment's required two-frame "
+            "pixel tracking validation (see the Motion Tracking page for that, or "
+            "docs/EXPERIMENTAL_RESULTS.md Section 5 for the completed real result on the two "
+            "required assignment videos)."
         )
     finally:
         input_path.unlink(missing_ok=True)
@@ -342,16 +471,31 @@ def _motion_tracking_page() -> None:
         "Question 1: Shi-Tomasi feature detection plus pyramidal Lucas-Kanade tracking between "
         "consecutive frames, following the two-frame tracking problem from "
         "IMPLEMENTATION_PLAN.md Section 10 (find P' = (x+u, y+v) in Frame 2 for each point "
-        "P = (x, y) in Frame 1). The formal brightness-constancy/Lucas-Kanade derivation and "
-        "manual pixel-location validation are later phases."
+        "P = (x, y) in Frame 1). The formal brightness-constancy/Lucas-Kanade derivation is on "
+        "the Bilinear Interpolation & Theory page; the professor-required manual "
+        "pixel-location validation is below, once features are detected and tracked."
     )
     upload = st.file_uploader("Video", type=VIDEO_TYPES, key="tracking_upload")
     if upload is None:
-        pending_experiment_banner(
-            "Upload a video to detect and track features. The two videos required by the "
-            "assignment, and their required two-consecutive-frame pixel validation, are "
-            "PENDING USER EXPERIMENT until supplied."
+        has_bundled = any(
+            list((_TRACKING_RESULTS_DIR / v).glob("*_record.json"))
+            for v in ("video_1", "video_2")
+            if (_TRACKING_RESULTS_DIR / v).is_dir()
         )
+        if has_bundled:
+            st.info(
+                "No video uploaded, so this shows the completed real two-consecutive-frame "
+                "pixel-location validation for both required assignment videos (committed "
+                "results, not a placeholder). Upload your own video above to run the live "
+                "detection/tracking/validation pipeline instead; that overrides this view."
+            )
+            _render_tracking_bundled_results()
+        else:
+            pending_experiment_banner(
+                "Upload a video to detect and track features. The two videos required by the "
+                "assignment, and their required two-consecutive-frame pixel validation, are "
+                "PENDING USER EXPERIMENT until supplied."
+            )
         return
 
     suffix = Path(upload.name).suffix or ".mp4"
@@ -541,8 +685,9 @@ def _motion_tracking_page() -> None:
                 "point tracked forward then backward returns to where it started. They are "
                 "**not** the assignment's required pixel-location validation, which compares a "
                 "predicted location against an actual observed location manually identified in "
-                "a real video frame. That comparison is a later phase and remains "
-                "PENDING USER EXPERIMENT for the two required assignment videos."
+                "a real video frame - that comparison is below, on this uploaded video "
+                "(the completed real result for the two required assignment videos is shown "
+                "when no video is uploaded, and in docs/EXPERIMENTAL_RESULTS.md Section 5)."
             )
             max_rows = 200
             rows = []
@@ -1154,24 +1299,34 @@ def _experiments_page() -> None:
     )
 
     st.subheader("Video status")
+    st.caption(
+        "Experiment status reflects the committed results under results/optical_flow/ and "
+        "results/tracking/, not whether the large raw source video happens to be present in "
+        "this environment - the raw videos are gitignored by design, so a fresh clone or the "
+        "public deployment never has them, but the completed real evidence is still shown."
+    )
     video_1_path = find_supplied_video(_REPO_ROOT / "data" / "videos" / "video_1")
     video_2_path = find_supplied_video(_REPO_ROOT / "data" / "videos" / "video_2")
+    video_1_done = (_OPTICAL_FLOW_RESULTS_DIR / "video_1" / "video_1_optical_flow_summary.json").is_file()
+    video_2_done = (_OPTICAL_FLOW_RESULTS_DIR / "video_2" / "video_2_optical_flow_summary.json").is_file()
     c1, c2 = st.columns(2)
     with c1:
-        if video_1_path is not None:
-            st.success(f"Video 1 supplied: {video_1_path.name}")
+        if video_1_done:
+            st.success("Video 1: experiment complete.")
         else:
-            st.warning("Video 1: PENDING USER EXPERIMENT - not yet supplied in data/videos/video_1/")
+            st.warning("Video 1: PENDING USER EXPERIMENT - no results/optical_flow/video_1/ summary found.")
+        st.caption(f"Raw source file present locally: {'yes (' + video_1_path.name + ')' if video_1_path else 'no'}")
     with c2:
-        if video_2_path is not None:
-            st.success(f"Video 2 supplied: {video_2_path.name}")
+        if video_2_done:
+            st.success("Video 2: experiment complete.")
         else:
-            st.warning("Video 2: PENDING USER EXPERIMENT - not yet supplied in data/videos/video_2/")
+            st.warning("Video 2: PENDING USER EXPERIMENT - no results/optical_flow/video_2/ summary found.")
+        st.caption(f"Raw source file present locally: {'yes (' + video_2_path.name + ')' if video_2_path else 'no'}")
 
-    if video_1_path is None and video_2_path is None:
+    if not video_1_done and not video_2_done:
         pending_experiment_banner(
-            "Neither assignment video has been supplied yet. Add real video files under "
-            "data/videos/video_1/ and data/videos/video_2/, or point "
+            "Neither assignment video's experiment has been completed yet. Add real video "
+            "files under data/videos/video_1/ and data/videos/video_2/, or point "
             "scripts/process_optical_flow.py / scripts/validate_tracking.py at your own copy "
             "of them, then reload this page. Do not substitute a synthetic or unrelated video "
             "for the assignment submission."

@@ -1,8 +1,11 @@
 # CSc 8830 Module 5-6 - Optical Flow, Motion Tracking, and Structure From Motion
 
-**Public dashboard (Modules 2-4 today):** <https://csc8830-dashboard-minnocent1.streamlit.app>
-Module 5-6 is not yet wired into the public dashboard (see "Optional shared dashboard" below);
-until then, run the standalone app locally with `streamlit run app.py`.
+**Public dashboard:** <https://csc8830-dashboard-minnocent1.streamlit.app> - Module 5-6 is
+wired into the dashboard's page-provider registry and its source has been synced and pushed to
+the dashboard's repository (see "Optional shared dashboard" below and the root `DEPLOYMENT.md`);
+whether the live public link has picked up that push depends on Streamlit Community Cloud's own
+redeploy/reboot, which is outside this repository. The standalone app always works locally:
+`streamlit run app.py`.
 
 This is the independent Module 5-6 repository for Georgia State University CSc 8830 Computer
 Vision. The assignment covers two questions:
@@ -74,18 +77,25 @@ From this repository root:
 
 The app exposes five pages:
 
-- **Optical Flow** - upload a video (mp4/avi/mov/mkv/m4v) to compute dense Farneback optical
-  flow over a configurable sample interval. Controls: start time, sample duration (30-second
-  assignment minimum enforced by default, with an explicit opt-out for quick previews),
-  visualization mode (HSV color or arrow overlay), vector spacing, arrow magnitude threshold,
-  and a frame cap that bounds interactive compute time. Outputs: the sample's start/end
-  frames, a representative HSV-color and arrow-overlay frame pair, a downloadable/playable
-  optical-flow video, and live magnitude/direction statistics. These statistics are real
-  computed values from whatever video is uploaded, but they are exploratory tooling, not the
-  assignment's required two-frame pixel-tracking validation (a later phase).
-- **Motion Tracking** - upload a video to detect Shi-Tomasi features on a start frame and track
-  them with pyramidal Lucas-Kanade into the next consecutive frame (the assignment's two-frame
-  tracking problem) and across a longer loaded window for track history. Controls: start time,
+- **Optical Flow** - with no video uploaded, shows the completed real optical-flow evidence
+  (original frame, HSV-color and arrow-overlay visualizations, magnitude statistics) for both
+  required assignment videos, loaded from committed `results/optical_flow/` artifacts so it
+  renders without the large source videos being present. Upload a video (mp4/avi/mov/mkv/m4v)
+  to instead compute dense Farneback optical flow over a configurable sample interval on it.
+  Controls: start time, sample duration (30-second assignment minimum enforced by default,
+  with an explicit opt-out for quick previews), visualization mode (HSV color or arrow
+  overlay), vector spacing, arrow magnitude threshold, and a frame cap that bounds interactive
+  compute time. Outputs: the sample's start/end frames, a representative HSV-color and
+  arrow-overlay frame pair, a downloadable/playable optical-flow video, and live
+  magnitude/direction statistics - real computed values from that upload, but exploratory
+  tooling, not the assignment's required two-frame pixel-tracking validation (see Motion
+  Tracking below).
+- **Motion Tracking** - with no video uploaded, shows the completed real two-consecutive-frame
+  pixel-location validation (predicted vs. manually observed Frame 2 location, pixel error) for
+  both required assignment videos, loaded from committed `results/tracking/` artifacts. Upload
+  a video to instead detect Shi-Tomasi features on a start frame and track them with pyramidal
+  Lucas-Kanade into the next consecutive frame (the assignment's two-frame tracking problem)
+  and across a longer loaded window for track history. Controls: start time,
   track-history length, Shi-Tomasi settings (max corners, quality level, min distance, block
   size, Harris toggle), Lucas-Kanade settings (window size, pyramid levels, iterations,
   epsilon), and an optional forward-backward validation threshold. Outputs: Frame 1 with
@@ -148,10 +158,17 @@ rejection) and reprojection error against hand-worked formulas (`module5_6.homog
 camera/view metadata validation with no fabricated physical-parameter defaults
 (`module5_6.camera`), homogeneous-coordinate and boundary-transform geometry
 (`module5_6.geometry`), end-to-end synthetic view registration recovering a known homography
-from warped images (`module5_6.sfm`), and the dashboard-compatible page-provider contract.
-They do not count as experimental validation - that requires the actual assignment videos and
-four-view images (see "Data and video
-requirements").
+from warped images (`module5_6.sfm`), and the dashboard-compatible page-provider contract. Most
+of these are synthetic-fixture software-verification tests; they do not by themselves count as
+experimental validation - that comes from the real videos and four-view images described under
+"Data and video requirements" below, whose actual results are documented in
+`docs/EXPERIMENTAL_RESULTS.md` and `docs/SFM_CALCULATIONS.md`.
+
+Streamlit `AppTest` coverage (`tests/test_webapp_*.py`) additionally verifies: all five pages
+render with no exception, both with and without a video/image uploaded; the Optical Flow,
+Motion Tracking, and Structure From Motion pages' bundled real-sample fallbacks display the
+correct real committed numbers (matching the docs above) when nothing is uploaded; and the
+Experiments & Results page correctly reports every experiment as complete.
 
 ## Reproduction workflow
 
@@ -237,10 +254,15 @@ Module 5-6 with:
     from module5_6.webapp.pages import get_pages
 
 The host should add `Module_5-6/src` to its import path and adapt page objects by their
-`module_label`, `page_label`, `order`, and `render` attributes. Wiring Module 5-6 into the
-course root dashboard and the public Streamlit Community Cloud deployment (see
-`../DEPLOYMENT.md`) is a later step, not part of these early phases. The standalone
-Module 5-6 app remains the recommended grading path in the meantime.
+`module_label`, `page_label`, `order`, and `render` attributes.
+
+Module 5-6 is wired into both the local course root dashboard (`Assignments/app.py`) and the
+public Streamlit Community Cloud deployment repository (`Assignments/csc8830-dashboard/`, see
+`../DEPLOYMENT.md`), the same page-provider pattern Modules 2-4 use. Module 5-6 does not import
+anything from those modules or from the dashboard itself - the dependency runs one way, from
+the dashboard into each module's `get_pages()`. The standalone app
+(`streamlit run app.py` from this repository) remains fully independent and is never required
+to go through the dashboard.
 
 ## Limitations and integrity notes
 
