@@ -165,17 +165,15 @@ consolidated CSV: `results/metrics/phase4_tracking_validation_records.csv`.
   `P1_frame2_validated.png` (zoomed: `P1_report_frame2_zoom.png`).
 - **Video 2, P1** - the notch apex of the letter "K" (where its diagonal arms meet its vertical
   stroke) in the "TRAILMAKER" logo text on a backpack being held up to the camera, at
-  t=40.01 s in the source video (frame 1200 of 1355; frame 2 is frame 1201 at t=40.05 s).
-  **Note:** this frame pair falls just outside video_2's declared 30-second optical-flow
-  sample window (5.0-35.0 s, Section 1 of `docs/EXPERIMENTAL_RESULTS.md`). Earlier candidate
-  points within that window (the same logo, seen at ~19.8 s and ~28.3 s) were tried first, but
-  under dim indoor lighting at that point in the clip the logo graphic and printed letters were
-  too motion-blurred at native 4K resolution to confidently and reproducibly identify the same
-  point in both frames by eye; frame 1200 (t=40.01 s), a few seconds later in the same source
-  video where the lighting/focus on the backpack was clearer, was used instead. It is still a
-  real frame pair from `IMG_7275.MOV`, satisfying "two consecutive frames from each of the
-  videos" - it is simply not inside the specific 30-second window chosen for the optical-flow
-  visualization deliverable.
+  t=40.01 s in the source video (frame 1200 of 1355; frame 2 is frame 1201 at t=40.05 s). This
+  falls inside video_2's declared 10.0-40.11 s optical-flow sample window (frames 300-1203,
+  Section 1 of `docs/EXPERIMENTAL_RESULTS.md`). Earlier candidate points elsewhere in that same
+  window (the same logo, seen at ~19.8 s and ~28.3 s) were tried first, but under dim indoor
+  lighting at those points in the clip the logo graphic and printed letters were too
+  motion-blurred at native 4K resolution to confidently and reproducibly identify the same
+  point in both frames by eye; frame 1200 (t=40.01 s), where the lighting/focus on the backpack
+  was clearer, was used instead - it is both a real frame pair from `IMG_7275.MOV` and inside
+  the same 30-second sample used for the optical-flow visualization deliverable.
   Selected via Shi-Tomasi detection restricted to the logo-patch region, manually confirmed as
   a real, high-contrast printed-letter corner. Frame 1 evidence:
   `results/tracking/video_2/P1_frame1.png` (zoomed: `P1_report_frame1_zoom.png`);
