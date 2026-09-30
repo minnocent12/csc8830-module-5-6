@@ -11,7 +11,9 @@ import json
 import tempfile
 from pathlib import Path
 
+import cv2
 import matplotlib.pyplot as plt
+import numpy as np
 import streamlit as st
 
 from module5_6.experiment import (
@@ -23,8 +25,13 @@ from module5_6.experiment import (
     record_observation,
     records_to_table,
 )
+from module5_6.camera import ViewMetadata
+from module5_6.features import ORBParams, detect_and_describe
+from module5_6.geometry import boundary_polygon_closed
+from module5_6.homography import HomographyParams
 from module5_6.interpolation import bilinear_interpolate_corners, bilinear_weights
-from module5_6.io_utils import to_grayscale
+from module5_6.io_utils import decode_image_bgr, to_grayscale
+from module5_6.sfm import register_view
 from module5_6.optical_flow import (
     compute_farneback_flow,
     draw_flow_arrows,
@@ -53,7 +60,7 @@ from module5_6.video import (
     render_optical_flow_video,
 )
 from module5_6.webapp._page import PageSpec
-from module5_6.webapp.ui import VIDEO_TYPES, foundation_page, pending_experiment_banner
+from module5_6.webapp.ui import IMAGE_TYPES, VIDEO_TYPES, pending_experiment_banner
 
 _MODULE = "Module 5-6"
 _REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -62,6 +69,16 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 def _bgr_to_rgb(image):
     """Reverse the channel order for display with st.image; never mutates the input."""
     return image[:, :, ::-1]
+
+
+def _draw_boundary_overlay(frame_bgr, boundary_points, *, color=(0, 0, 255), thickness=2):
+    """Draw a closed boundary polygon on a copy of frame_bgr; never mutates the input."""
+    overlay = frame_bgr.copy()
+    closed = boundary_polygon_closed(boundary_points).astype(np.int32).reshape(-1, 1, 2)
+    cv2.polylines(overlay, [closed], isClosed=False, color=color, thickness=thickness)
+    for x, y in boundary_points:
+        cv2.circle(overlay, (int(round(x)), int(round(y))), 5, color, -1)
+    return overlay
 
 
 def _bilinear_diagram(i00: float, i10: float, i01: float, i11: float, alpha: float, beta: float):
@@ -793,11 +810,218 @@ def _theory_page() -> None:
 
 
 def _sfm_page() -> None:
-    foundation_page(
-        "Structure From Motion",
-        "Question 2: four-viewpoint image upload, feature correspondence, planar homography "
-        "estimation, reprojection validation, and recovered-boundary visualization will be "
-        "added in a later phase.",
+    st.header("Structure From Motion")
+    st.info(
+        "Question 2: four-viewpoint planar homography registration for a flat/2D planar "
+        "object - not a dense/full 3D reconstruction (see "
+        "docs/STRUCTURE_FROM_MOTION_THEORY.md). Upload real images of a single planar object "
+        "taken from different camera positions."
+    )
+
+    st.subheader("View images")
+    view_ids = ["view_1", "view_2", "view_3", "view_4"]
+    images_bgr: dict[str, object] = {}
+    image_names: dict[str, str] = {}
+    columns = st.columns(4)
+    for col, view_id in zip(columns, view_ids):
+        with col:
+            upload = st.file_uploader(view_id, type=IMAGE_TYPES, key=f"sfm_upload_{view_id}")
+            if upload is not None:
+                try:
+                    images_bgr[view_id] = decode_image_bgr(upload.getvalue(), source_name=upload.name)
+                    image_names[view_id] = upload.name
+                    st.image(_bgr_to_rgb(images_bgr[view_id]), caption=upload.name, width="stretch")
+                except (TypeError, ValueError) as exc:
+                    st.error(f"Could not read {view_id}: {exc}")
+
+    if len(images_bgr) < 2:
+        pending_experiment_banner(
+            "Upload at least two views (ideally all four) to exercise feature matching and "
+            "homography registration. The four required real assignment viewpoints remain "
+            "PENDING USER EXPERIMENT until supplied under data/sfm/view_1/ through view_4/."
+        )
+        return
+    if len(images_bgr) < 4:
+        st.warning(
+            f"{len(images_bgr)} of the required 4 views are supplied - registration below runs "
+            "on the uploaded views, but the assignment requires all four."
+        )
+
+    st.subheader("Camera / view metadata (optional)")
+    st.caption(
+        "Record any real camera information you actually have for each supplied view. "
+        "Width/height come from the uploaded image itself; every other field stays blank "
+        "(never fabricated) until you supply a real value. See docs/CAMERA_GEOMETRY.md."
+    )
+    view_metadata: dict[str, ViewMetadata] = {}
+    for view_id in images_bgr:
+        height, width = images_bgr[view_id].shape[:2]
+        with st.expander(f"{view_id} metadata"):
+            device = st.text_input("Camera/device", value="", key=f"sfm_{view_id}_device").strip() or None
+            focal_length = (
+                st.number_input(
+                    "Focal length (mm) - leave 0 if unknown", min_value=0.0, value=0.0, key=f"sfm_{view_id}_focal"
+                )
+                or None
+            )
+            distance = (
+                st.number_input(
+                    "Distance to object (m) - leave 0 if unknown",
+                    min_value=0.0,
+                    value=0.0,
+                    key=f"sfm_{view_id}_distance",
+                )
+                or None
+            )
+            orientation = st.text_input(
+                "Approximate orientation (free text)", value="", key=f"sfm_{view_id}_orientation"
+            ).strip() or None
+            notes = st.text_area("Notes", value="", key=f"sfm_{view_id}_notes").strip() or None
+            view_metadata[view_id] = ViewMetadata(
+                view_id=view_id,
+                image_path=image_names.get(view_id),
+                width=width,
+                height=height,
+                device=device,
+                focal_length_mm=focal_length,
+                distance_to_object_m=distance,
+                orientation=orientation,
+                notes=notes,
+                status="available",
+            )
+            st.json(view_metadata[view_id].to_dict())
+
+    st.subheader("Reference view and registration settings")
+    reference_view_id = st.selectbox("Reference view", options=list(images_bgr.keys()), key="sfm_reference_view")
+    other_view_ids = [v for v in images_bgr if v != reference_view_id]
+
+    with st.expander("Feature detection & homography settings", expanded=False):
+        n_features = int(st.slider("ORB max features", 100, 2000, 500, step=100, key="sfm_n_features"))
+        method_label = st.radio(
+            "Homography method",
+            ["RANSAC (robust, rejects outlier matches)", "All points (no outlier rejection)"],
+            key="sfm_homography_method",
+        )
+        homography_method = "ransac" if method_label.startswith("RANSAC") else "all"
+        ransac_threshold = float(
+            st.slider("RANSAC reprojection threshold (px)", 1.0, 10.0, 3.0, key="sfm_ransac_threshold")
+        )
+
+    orb_params = ORBParams(n_features=n_features)
+    homography_params = HomographyParams(method=homography_method, ransac_reproj_threshold=ransac_threshold)
+
+    st.subheader("Object boundary (optional)")
+    enable_boundary = st.checkbox(
+        "Enter each view's four boundary corners to recover/register the object's boundary",
+        value=False,
+        key="sfm_enable_boundary",
+    )
+    boundary_points_by_view: dict[str, "np.ndarray"] = {}
+    if enable_boundary:
+        st.caption(
+            "Pixel coordinates, top-left origin, x increases right, y increases down "
+            "(matches the convention in docs/BILINEAR_INTERPOLATION.md and elsewhere in this app)."
+        )
+        for view_id in images_bgr:
+            height, width = images_bgr[view_id].shape[:2]
+            default_points = [(0, 0), (width - 1, 0), (width - 1, height - 1), (0, height - 1)]
+            with st.expander(f"{view_id} boundary corners", expanded=False):
+                points = []
+                corner_columns = st.columns(4)
+                for index, corner_col in enumerate(corner_columns):
+                    with corner_col:
+                        x = st.number_input(
+                            f"P{index + 1} x", 0, width - 1, default_points[index][0], key=f"sfm_{view_id}_p{index}_x"
+                        )
+                        y = st.number_input(
+                            f"P{index + 1} y", 0, height - 1, default_points[index][1], key=f"sfm_{view_id}_p{index}_y"
+                        )
+                        points.append((float(x), float(y)))
+                boundary_points_by_view[view_id] = np.array(points, dtype=np.float64)
+
+    if not st.button("Detect features and register views", type="primary"):
+        pending_experiment_banner(
+            "Choose a reference view and settings above, then run to view detected features, "
+            "matches, homography/reprojection statistics, and (if boundary corners were "
+            "entered) the registered boundary overlay."
+        )
+        return
+
+    reference_gray = to_grayscale(images_bgr[reference_view_id])
+    reference_keypoints, reference_descriptors = detect_and_describe(reference_gray, params=orb_params)
+    st.subheader(f"Reference view: {reference_view_id}")
+    st.image(
+        _bgr_to_rgb(draw_tracked_points(images_bgr[reference_view_id], reference_keypoints, color=(0, 255, 0))),
+        caption=f"{reference_keypoints.shape[0]} ORB features detected",
+        width="stretch",
+    )
+    if reference_keypoints.shape[0] == 0:
+        st.error("No ORB features were detected on the reference view; try a more textured image or lower settings.")
+        return
+
+    for view_id in other_view_ids:
+        st.subheader(f"{view_id} -> {reference_view_id}")
+        view_gray = to_grayscale(images_bgr[view_id])
+        try:
+            registration = register_view(
+                reference_keypoints,
+                reference_descriptors,
+                view_id,
+                view_gray,
+                orb_params=orb_params,
+                homography_params=homography_params,
+                boundary_points_view=boundary_points_by_view.get(view_id),
+            )
+        except ValueError as exc:
+            st.error(f"Could not register {view_id}: {exc}")
+            continue
+
+        c1, c2 = st.columns(2)
+        with c1:
+            st.image(
+                _bgr_to_rgb(
+                    draw_tracked_points(images_bgr[view_id], registration.matched_points_view, color=(0, 0, 255))
+                ),
+                caption=f"{view_id}: {registration.matched_points_view.shape[0]} matched points",
+                width="stretch",
+            )
+        with c2:
+            st.image(
+                _bgr_to_rgb(
+                    draw_tracked_points(
+                        images_bgr[reference_view_id], registration.matched_points_reference, color=(0, 255, 0)
+                    )
+                ),
+                caption=f"{reference_view_id}: corresponding matched points",
+                width="stretch",
+            )
+
+        inlier_count = int(registration.inlier_mask.sum())
+        s1, s2, s3 = st.columns(3)
+        s1.metric("Matches", registration.matched_points_view.shape[0])
+        s2.metric("Inliers", inlier_count)
+        s3.metric("Mean reprojection error, inliers (px)", f"{registration.mean_reprojection_error:.3f}")
+        st.caption(
+            "Homography H (view -> reference), estimated by "
+            f"{'RANSAC' if homography_method == 'ransac' else 'all-point least squares'}:"
+        )
+        st.code(np.array2string(registration.homography, precision=4, suppress_small=True))
+
+        if registration.registered_boundary is not None:
+            st.image(
+                _bgr_to_rgb(
+                    _draw_boundary_overlay(images_bgr[reference_view_id], registration.registered_boundary)
+                ),
+                caption=f"{view_id}'s boundary corners, registered into {reference_view_id}'s frame",
+                width="stretch",
+            )
+
+    st.caption(
+        "These features, matches, homographies, and reprojection errors are computed live from "
+        "whatever images were uploaded above; they are exploratory/software-verification "
+        "tooling. The professor-required four-view experiment on the real assignment object "
+        "remains PENDING USER EXPERIMENT until the real images are supplied under "
+        "data/sfm/view_1/ through view_4/."
     )
 
 
@@ -938,13 +1162,23 @@ def _experiments_page() -> None:
 
     st.subheader("Structure From Motion")
     st.write(
-        "Four-view SfM experiment results, camera information, and reprojection results will "
-        "be added in a later approved phase."
+        "The reusable planar homography-registration foundation (ORB features, homography "
+        "estimation/reprojection, boundary registration - see the Structure From Motion page "
+        "and docs/STRUCTURE_FROM_MOTION_THEORY.md) is implemented and tested against synthetic "
+        "fixtures. Real four-view experiment results, camera information, and reprojection "
+        "results for the actual assignment object remain a later approved phase."
     )
-    pending_experiment_banner(
-        "This section is structurally available now. Its computer-vision processing is "
-        "scheduled for a later approved phase."
+    sfm_views_present = any(
+        find_supplied_video(_REPO_ROOT / "data" / "sfm" / f"view_{i}") is not None for i in range(1, 5)
     )
+    if sfm_views_present:
+        st.success("At least one real data/sfm/view_N/ image has been supplied.")
+    else:
+        pending_experiment_banner(
+            "No real four-view SfM images are supplied yet "
+            "(data/sfm/view_1/ through view_4/ are still empty placeholders). "
+            "PENDING USER EXPERIMENT."
+        )
 
 
 def get_pages() -> list[PageSpec]:

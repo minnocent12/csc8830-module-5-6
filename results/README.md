@@ -21,5 +21,11 @@ The small evidence figures (`*.png`, downscaled to a ~900px max dimension), vali
 matching Module 3/4's convention of tracking only small, intentionally-selected evidence. The
 large generated optical-flow videos (`*.mp4`, ~50-110 MB each) stay gitignored and local-only,
 same as the raw source videos, and are reproducible from them with
-`scripts/process_optical_flow.py`. Structure-from-motion outputs (`sfm/`) remain a later phase.
-Missing measurements are marked PENDING USER EXPERIMENT rather than fabricated.
+`scripts/process_optical_flow.py`.
+
+`sfm/` remains empty: the Phase 5 planar-registration software
+(`module5_6.features`/`homography`/`camera`/`geometry`/`sfm`) is implemented and tested
+against synthetic fixtures only (see `docs/STRUCTURE_FROM_MOTION_THEORY.md`,
+`docs/SFM_CALCULATIONS.md`), and writes no output here until it is run against the real
+four-view images (`data/sfm/view_1/` through `view_4/`, still pending). Missing measurements
+are marked PENDING USER EXPERIMENT rather than fabricated.

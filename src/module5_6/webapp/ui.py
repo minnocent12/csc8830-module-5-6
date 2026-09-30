@@ -4,6 +4,7 @@ from __future__ import annotations
 import streamlit as st
 
 VIDEO_TYPES = ["mp4", "avi", "mov", "mkv", "m4v"]
+IMAGE_TYPES = ["jpg", "jpeg", "png", "bmp", "tif", "tiff"]
 
 
 def pending_experiment_banner(detail: str | None = None) -> None:
