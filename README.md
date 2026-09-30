@@ -25,11 +25,15 @@ visualization, and processed optical-flow video export - all wired into the Opti
 Phase 2 adds Shi-Tomasi feature detection, pyramidal Lucas-Kanade tracking between consecutive
 frames, valid/invalid track filtering from OpenCV's status output, forward-backward tracking
 validation, displacement vectors/magnitude, and multi-frame trajectory/track-history support -
-all wired into the Motion Tracking page. Bilinear interpolation, structure from motion, and all
-empirical results remain scheduled for later approved phases. No results, pixel coordinates,
-camera parameters, or SfM measurements are fabricated; the two assignment videos and their
-required two-consecutive-frame pixel-location validation remain PENDING USER EXPERIMENT until
-supplied.
+all wired into the Motion Tracking page. Phase 3 adds a from-scratch bilinear-interpolation
+implementation (independent of OpenCV, cross-validated against it), the report-ready
+brightness-constancy/optical-flow-constraint/aperture-problem/Lucas-Kanade derivations, and the
+bilinear-interpolation derivation with a numerical worked example - all presented, with an
+interactive demonstration, on the Bilinear Interpolation & Theory page. Structure from motion
+and all empirical results remain scheduled for later approved phases. No results, pixel
+coordinates, camera parameters, or SfM measurements are fabricated; the two assignment videos
+and their required two-consecutive-frame pixel-location validation remain PENDING USER
+EXPERIMENT until supplied.
 
 ## Setup
 
@@ -70,8 +74,17 @@ The app exposes five pages:
   across the loaded frames. OpenCV's per-point and forward-backward errors are algorithmic
   quality signals from whatever video is uploaded, not the assignment's required manual
   pixel-location validation (a later phase).
-- Bilinear Interpolation & Theory, Structure From Motion, and Experiments & Results remain
-  pending-safe placeholders for later approved phases.
+- **Bilinear Interpolation & Theory** - presents the brightness-constancy assumption, the
+  first-order Taylor expansion and optical-flow constraint equation, the aperture problem, the
+  Lucas-Kanade overdetermined system and least-squares solution (and its relationship to the
+  Phase 2 OpenCV implementation), and the bilinear-interpolation derivation from two sequential
+  1D linear interpolations. Includes an interactive demonstration: configurable four
+  neighboring pixel intensities and fractional coordinates, live interpolation weights and
+  result, and a schematic diagram, computed by the same `module5_6.interpolation` functions
+  the tests use. Full write-ups: `docs/OPTICAL_FLOW_THEORY.md`,
+  `docs/MOTION_TRACKING_DERIVATION.md`, `docs/BILINEAR_INTERPOLATION.md`.
+- Structure From Motion and Experiments & Results remain pending-safe placeholders for later
+  approved phases.
 
 ## Run tests
 
@@ -82,7 +95,9 @@ frame-reading behavior against small synthetic video fixtures, Farneback optical
 correctness against a known synthetic pixel translation, flow visualization, Shi-Tomasi feature
 detection, Lucas-Kanade tracking correctness against a known synthetic pixel translation,
 valid/invalid track filtering, forward-backward validation, multi-frame trajectory building,
-tracking visualization, and the dashboard-compatible page-provider contract. They do not count
+tracking visualization, bilinear-interpolation weights/values against hand-worked examples and
+against an OpenCV `cv2.remap` cross-check, and the dashboard-compatible page-provider contract.
+They do not count
 as experimental validation - that requires the actual assignment videos (see "Data and video
 requirements").
 
@@ -122,7 +137,9 @@ See `data/README.md` for the exact expected layout.
       optical_flow.py     pure Farneback dense-flow computation and visualization
       tracking.py         Shi-Tomasi detection, pyramidal Lucas-Kanade tracking, forward-
                            backward validation, trajectories, and tracking visualization
-      SfM/theory modules (added in later phases)
+      interpolation.py    from-scratch bilinear interpolation (four-neighbor lookup, weights,
+                           full breakdown), independent of OpenCV
+      SfM modules (added in a later phase)
       webapp/             PageSpec provider and Streamlit UI
     data/                 user videos and four-view SfM images
     results/              derived optical-flow/tracking/SfM outputs and metrics

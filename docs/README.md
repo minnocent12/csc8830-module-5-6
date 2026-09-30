@@ -1,9 +1,19 @@
 # Module 5-6 documentation
 
-Phase 0 establishes the documentation location. Later approved phases will add the optical-flow
-theory and derivation, the bilinear-interpolation derivation, the tracking-validation write-up,
-the structure-from-motion theory and camera-geometry notes, the four-view SfM calculations,
-experimental results, report notes, and the demonstration-video checklist (see
+- `OPTICAL_FLOW_THEORY.md` - brightness constancy, the first-order Taylor expansion, the
+  optical-flow constraint equation, and the aperture problem.
+- `MOTION_TRACKING_DERIVATION.md` - the Lucas-Kanade overdetermined system and least-squares
+  solution, the two-frame tracking problem, and how that derivation relates to the pyramidal
+  OpenCV implementation used in Phase 2.
+- `BILINEAR_INTERPOLATION.md` - the bilinear-interpolation derivation from two sequential 1D
+  linear interpolations, plus a complete deterministic numerical worked example.
+
+Later approved phases will add the tracking-validation write-up (using the two real assignment
+videos), the structure-from-motion theory and camera-geometry notes, the four-view SfM
+calculations, experimental results, report notes, and the demonstration-video checklist (see
 `IMPLEMENTATION_PLAN.md` for the full planned document list).
 
-No empirical claims belong in these documents until corresponding experiments have actually run.
+No empirical claims belong in these documents until corresponding experiments have actually
+run. The bilinear-interpolation worked example and any synthetic tracking/flow examples
+referenced from these documents are mathematical or software-verification examples, not
+assignment experimental evidence.
