@@ -20,22 +20,39 @@
 ## Question 2 - Structure From Motion (planar homography registration)
 
 - `STRUCTURE_FROM_MOTION_THEORY.md` - what the four-view planar SfM task asks for, why the
-  planar simplification applies, what this implementation computes, and the important
-  terminology distinction from dense/full 3D reconstruction.
+  planar simplification applies, what this implementation computes, the important terminology
+  distinction from dense/full 3D reconstruction, and (Section 0) a summary of the completed
+  real four-view experiment.
 - `CAMERA_GEOMETRY.md` - the pinhole camera model, homogeneous coordinates, the intrinsic
-  matrix `K` and extrinsic `[R|t]`, and the planar-scene homography relation
-  `H = K(R - t n^T/d) K^-1`.
+  matrix `K` and extrinsic `[R|t]`, the planar-scene homography relation
+  `H = K(R - t n^T/d) K^-1`, and (Section 5) exactly which of those quantities are known vs.
+  genuinely unknown for the real experiment.
 - `SFM_CALCULATIONS.md` - the Direct Linear Transform homography estimation, reprojection
-  validation, boundary registration across views, and a complete deterministic numerical
-  worked example.
+  validation, boundary registration across views, a deterministic synthetic worked example
+  (Section 4, explanatory only), and (Sections 6-7) the real four-view registration results
+  and worked example using actual image data.
+- `EXPERIMENTAL_RESULTS.md` Section 9 - the consolidated real SfM results write-up (object,
+  camera-position table, feature/match/inlier counts, homographies, reprojection error,
+  boundary reconstruction).
 
-**PENDING USER EXPERIMENT** until the four real `data/sfm/view_1..4/` images are supplied - see
-`STRUCTURE_FROM_MOTION_THEORY.md`'s Status section. Phase 5 builds and tests the reusable
-software foundation (`module5_6.features`, `homography`, `camera`, `geometry`, `sfm`) only,
-against synthetic fixtures.
+**COMPLETE.** The four real `data/sfm/view_1..4/` images were captured and processed
+end-to-end by `scripts/process_sfm_experiment.py`; every number in the documents above comes
+from that run (`results/sfm/sfm_summary.json`). The reusable software foundation
+(`module5_6.features`, `homography`, `camera`, `geometry`, `sfm`) was built and tested against
+synthetic fixtures first, then run on the real images.
 
-Later approved phases will add report notes and the demonstration-video checklist (see
-`IMPLEMENTATION_PLAN.md` for the full planned document list).
+## Documents outside `docs/`
+
+- `../README.md` - setup, running the app (standalone and shared-dashboard), architecture, and
+  current status.
+- `../data/README.md` - what belongs under `data/`, what is gitignored vs. committed, and the
+  `experiment_manifest.json` schema.
+- `../DEPLOYMENT.md` (root `Assignments/` level) - how this module is wired into the public
+  Streamlit Community Cloud dashboard.
+
+Report notes and the demonstration-video checklist for the final PDF/video submission are a
+later phase (see `IMPLEMENTATION_PLAN.md` for the full planned document list) - not started
+yet, and out of scope for the web-application-completion phase.
 
 No empirical claims belong in these documents until corresponding experiments have actually
 run. Worked numerical examples and any synthetic tracking/flow/homography examples referenced
