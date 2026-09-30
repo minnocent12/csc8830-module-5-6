@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "videos": {
+    "video_1": {
+      "video_id": "video_1",
+      "path": null,
+      "status": "pending_user_experiment",
+      "fps": null,
+      "frame_count": null,
+      "width": null,
+      "height": null,
+      "sample_start_seconds": null,
+      "sample_duration_seconds": null,
+      "optical_flow_video_path": null
+    },
+    "video_2": {
+      "video_id": "video_2",
+      "path": null,
+      "status": "pending_user_experiment",
+      "fps": null,
+      "frame_count": null,
+      "width": null,
+      "height": null,
+      "sample_start_seconds": null,
+      "sample_duration_seconds": null,
+      "optical_flow_video_path": null
+    }
+  },
+  "validation_records": [],
+  "schema_notes": "status values: pending_user_experiment (no video supplied yet), available (video supplied but not yet processed), processed (optical-flow evidence generated). validation_records holds TrackingValidationRecord.to_dict() entries produced by scripts/validate_tracking.py or the Motion Tracking web page manual-validation section."
+}

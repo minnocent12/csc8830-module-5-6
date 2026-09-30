@@ -7,12 +7,21 @@ for later approved phases (see IMPLEMENTATION_PLAN.md).
 """
 from __future__ import annotations
 
+import json
 import tempfile
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import streamlit as st
 
+from module5_6.experiment import (
+    TrackingValidationRecord,
+    default_experiment_manifest,
+    draw_validation_overlay,
+    find_supplied_video,
+    record_observation,
+    records_to_table,
+)
 from module5_6.interpolation import bilinear_interpolate_corners, bilinear_weights
 from module5_6.io_utils import to_grayscale
 from module5_6.optical_flow import (
@@ -46,6 +55,7 @@ from module5_6.webapp._page import PageSpec
 from module5_6.webapp.ui import VIDEO_TYPES, foundation_page, pending_experiment_banner
 
 _MODULE = "Module 5-6"
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _bgr_to_rgb(image):
@@ -539,6 +549,110 @@ def _motion_tracking_page() -> None:
                 "for these points."
             )
 
+            st.subheader("Two-frame pixel-location validation (manual, professor-required)")
+            st.caption(
+                "IMPLEMENTATION_PLAN.md Section 12: pick a point above, see its algorithmic "
+                "Lucas-Kanade prediction, then **you** visually determine and enter where that "
+                "point actually is in Frame 2. Unlike 'LK consistency error' and "
+                "'Forward-backward consistency' above - which never look at Frame 2 as an "
+                "image - this produces a meaningful pixel error only if the observed "
+                "coordinate truly comes from inspecting Frame 2, not from accepting a default "
+                "or copying the prediction."
+            )
+            point_index = int(
+                st.number_input(
+                    "Point index to validate (row number from the table above)",
+                    min_value=0,
+                    max_value=valid_previous.shape[0] - 1,
+                    value=0,
+                    step=1,
+                    key="tracking_validation_point_index",
+                )
+            )
+            v1, v2 = st.columns(2)
+            video_id = v1.text_input("Video ID for this record", value="video_1", key="tracking_validation_video_id")
+            point_label = v2.text_input("Point label", value="P1", key="tracking_validation_point_label")
+            x1, y1 = float(valid_previous[point_index, 0]), float(valid_previous[point_index, 1])
+            predicted_x2, predicted_y2 = float(valid_next[point_index, 0]), float(valid_next[point_index, 1])
+            st.write(
+                f"Frame 1 point: ({x1:.2f}, {y1:.2f})  |  Algorithmic predicted Frame 2 point: "
+                f"({predicted_x2:.2f}, {predicted_y2:.2f})"
+            )
+
+            crop_half = 60
+            crop_center_x, crop_center_y = int(round(predicted_x2)), int(round(predicted_y2))
+            frame2_height, frame2_width = frames[1].shape[:2]
+            x_lo = max(0, crop_center_x - crop_half)
+            x_hi = min(frame2_width, crop_center_x + crop_half)
+            y_lo = max(0, crop_center_y - crop_half)
+            y_hi = min(frame2_height, crop_center_y + crop_half)
+            crop = frames[1][y_lo:y_hi, x_lo:x_hi]
+            st.image(
+                _bgr_to_rgb(crop),
+                caption=(
+                    f"Frame 2 crop around the prediction (x in [{x_lo}, {x_hi}), "
+                    f"y in [{y_lo}, {y_hi})) - inspect this to determine the actual location"
+                ),
+                width="stretch",
+            )
+
+            confirmed = st.checkbox(
+                "I have visually inspected Frame 2 above and the coordinates below reflect "
+                "what I actually observed (not copied from the prediction)",
+                value=False,
+                key="tracking_validation_confirmed",
+            )
+            oc1, oc2 = st.columns(2)
+            observed_x = float(
+                oc1.number_input("Observed Frame 2 x", value=x1, step=1.0, key="tracking_validation_observed_x")
+            )
+            observed_y = float(
+                oc2.number_input("Observed Frame 2 y", value=y1, step=1.0, key="tracking_validation_observed_y")
+            )
+
+            if confirmed:
+                validation_record = record_observation(
+                    TrackingValidationRecord(
+                        video_id=video_id,
+                        point_label=point_label,
+                        frame1_index=start_frame,
+                        frame2_index=start_frame + 1,
+                        x1=x1,
+                        y1=y1,
+                        predicted_x2=predicted_x2,
+                        predicted_y2=predicted_y2,
+                    ),
+                    observed_x=observed_x,
+                    observed_y=observed_y,
+                    method="Streamlit Motion Tracking page - manual visual inspection",
+                )
+                st.metric("Pixel error e (predicted vs. observed)", f"{validation_record.pixel_error:.3f} px")
+                st.image(
+                    _bgr_to_rgb(draw_validation_overlay(frames[1], validation_record)),
+                    caption="Predicted (red) vs. observed (green) Frame 2 location",
+                    width="stretch",
+                )
+                st.download_button(
+                    "Download validation record (JSON)",
+                    data=json.dumps(validation_record.to_dict(), indent=2),
+                    file_name=f"{video_id}_{point_label}_validation_record.json",
+                    mime="application/json",
+                    key="tracking_validation_download",
+                )
+                st.caption(
+                    "Save this record under results/tracking/<video_id>/, or upload it on the "
+                    "Experiments & Results page, to include it in the consolidated validation "
+                    "table. This pixel error is real and computed from the coordinates you "
+                    "entered - it is only meaningful evidence if the observed coordinate truly "
+                    "came from inspecting Frame 2."
+                )
+            else:
+                pending_experiment_banner(
+                    "Manual pixel-location validation for this point is PENDING USER "
+                    "EXPERIMENT until you inspect Frame 2 above, enter the actual observed "
+                    "coordinate, and check the confirmation box."
+                )
+
         st.subheader("Track history across the loaded frames")
         trajectories = track_trajectories(grays, shi_tomasi_params=shi_tomasi_params, lk_params=lk_params)
         alive_full_length = sum(1 for t in trajectories if len(t.positions) == len(grays))
@@ -687,11 +801,126 @@ def _sfm_page() -> None:
 
 
 def _experiments_page() -> None:
-    foundation_page(
-        "Experiments & Results",
-        "Consolidated video summaries, tracking-error tables, four-view SfM experiment "
-        "results, camera information, and reprojection results will be added once the real "
-        "videos and four-view images have been processed in later phases.",
+    st.header("Experiments & Results")
+    st.info(
+        "Question 1's professor-required two-consecutive-frame pixel-location validation "
+        "(IMPLEMENTATION_PLAN.md Section 12) and consolidated video/experiment evidence. "
+        "Structure-from-motion experiment results are a later phase."
+    )
+
+    st.subheader("Video status")
+    video_1_path = find_supplied_video(_REPO_ROOT / "data" / "videos" / "video_1")
+    video_2_path = find_supplied_video(_REPO_ROOT / "data" / "videos" / "video_2")
+    c1, c2 = st.columns(2)
+    with c1:
+        if video_1_path is not None:
+            st.success(f"Video 1 supplied: {video_1_path.name}")
+        else:
+            st.warning("Video 1: PENDING USER EXPERIMENT - not yet supplied in data/videos/video_1/")
+    with c2:
+        if video_2_path is not None:
+            st.success(f"Video 2 supplied: {video_2_path.name}")
+        else:
+            st.warning("Video 2: PENDING USER EXPERIMENT - not yet supplied in data/videos/video_2/")
+
+    if video_1_path is None and video_2_path is None:
+        pending_experiment_banner(
+            "Neither assignment video has been supplied yet. Add real video files under "
+            "data/videos/video_1/ and data/videos/video_2/, or point "
+            "scripts/process_optical_flow.py / scripts/validate_tracking.py at your own copy "
+            "of them, then reload this page. Do not substitute a synthetic or unrelated video "
+            "for the assignment submission."
+        )
+    manifest = default_experiment_manifest()
+    st.caption(
+        f"Experiment manifest schema version {manifest['schema_version']} "
+        "(data/experiment_manifest.json documents the full per-video schema; see "
+        "docs/EXPERIMENTAL_RESULTS.md)."
+    )
+
+    st.subheader("Optical-flow evidence")
+    st.caption(
+        "Run scripts/process_optical_flow.py against each supplied video to generate the "
+        "optical-flow visualization video and magnitude/direction summary required by "
+        "Question 1; results are written under results/optical_flow/<video_id>/."
+    )
+    for video_id in ("video_1", "video_2"):
+        summary_path = _REPO_ROOT / "results" / "optical_flow" / video_id / f"{video_id}_optical_flow_summary.json"
+        if summary_path.is_file():
+            try:
+                summary = json.loads(summary_path.read_text())
+                st.success(f"{video_id}: optical-flow evidence available ({summary_path}).")
+                st.json(summary)
+            except (ValueError, OSError) as exc:
+                st.error(f"Could not read {summary_path}: {exc}")
+        else:
+            st.warning(f"{video_id}: optical-flow evidence PENDING USER EXPERIMENT ({summary_path} not found).")
+
+    st.subheader("Two-consecutive-frame pixel-location validation records")
+    st.caption(
+        "Upload one or more validation-record JSON files produced by the Motion Tracking "
+        "page's manual-validation workflow or by scripts/validate_tracking.py. The table "
+        "below reproduces IMPLEMENTATION_PLAN.md Section 12's required table shape."
+    )
+    uploads = st.file_uploader(
+        "Validation record JSON files", type=["json"], accept_multiple_files=True, key="experiments_records"
+    )
+    records: list[TrackingValidationRecord] = []
+    for upload in uploads or []:
+        try:
+            data = json.loads(upload.getvalue().decode("utf-8"))
+            records.append(TrackingValidationRecord.from_dict(data))
+        except (ValueError, KeyError, TypeError) as exc:
+            st.error(f"Could not parse {upload.name}: {exc}")
+
+    if not records:
+        st.table(
+            [
+                {
+                    "Video": video,
+                    "Point": point,
+                    "Frame 1": "Pending",
+                    "Predicted Frame 2": "Pending",
+                    "Observed Frame 2": "Pending",
+                    "Pixel Error": "Pending",
+                }
+                for video in ("Video 1", "Video 2")
+                for point in ("P1", "P2")
+            ]
+        )
+        pending_experiment_banner(
+            "No validation records uploaded yet. This table mirrors "
+            "IMPLEMENTATION_PLAN.md Section 12's required shape until real records exist - "
+            "PENDING USER EXPERIMENT: real videos not yet supplied."
+        )
+    else:
+        st.dataframe(records_to_table(records), width="stretch")
+        completed = [record for record in records if record.pixel_error is not None]
+        if completed:
+            errors = [record.pixel_error for record in completed]
+            s1, s2, s3 = st.columns(3)
+            s1.metric("Completed records", len(completed))
+            s2.metric("Mean pixel error (px)", f"{sum(errors) / len(errors):.3f}")
+            s3.metric("Max pixel error (px)", f"{max(errors):.3f}")
+        pending_count = len(records) - len(completed)
+        if pending_count:
+            st.warning(f"{pending_count} of {len(records)} uploaded record(s) are still awaiting manual observation.")
+        st.caption(
+            "Pixel error above is the professor-required comparison between the predicted and "
+            "manually observed Frame 2 location - distinct from OpenCV's algorithmic tracking "
+            "error and forward-backward consistency shown on the Motion Tracking page. Do not "
+            "overstate what a small error means; it reflects only the point(s) actually "
+            "measured."
+        )
+
+    st.subheader("Structure From Motion")
+    st.write(
+        "Four-view SfM experiment results, camera information, and reprojection results will "
+        "be added in a later approved phase."
+    )
+    pending_experiment_banner(
+        "This section is structurally available now. Its computer-vision processing is "
+        "scheduled for a later approved phase."
     )
 
 

@@ -7,10 +7,16 @@
   OpenCV implementation used in Phase 2.
 - `BILINEAR_INTERPOLATION.md` - the bilinear-interpolation derivation from two sequential 1D
   linear interpolations, plus a complete deterministic numerical worked example.
+- `TRACKING_VALIDATION.md` - the professor-required two-consecutive-frame manual
+  pixel-location validation: procedure, coordinate convention, point-selection method, the
+  Euclidean pixel-error formula, and limitations. **PENDING USER EXPERIMENT** until the two
+  real assignment videos are supplied.
+- `EXPERIMENTAL_RESULTS.md` - the consolidated results write-up (video summaries, inferred
+  optical-flow information, the validation table). **PENDING USER EXPERIMENT** until the two
+  real assignment videos are supplied.
 
-Later approved phases will add the tracking-validation write-up (using the two real assignment
-videos), the structure-from-motion theory and camera-geometry notes, the four-view SfM
-calculations, experimental results, report notes, and the demonstration-video checklist (see
+Later approved phases will add the structure-from-motion theory and camera-geometry notes, the
+four-view SfM calculations, report notes, and the demonstration-video checklist (see
 `IMPLEMENTATION_PLAN.md` for the full planned document list).
 
 No empirical claims belong in these documents until corresponding experiments have actually

@@ -14,3 +14,9 @@ The video and structure-from-motion directories are intentionally empty in Phase
 
 Until real videos and four-view images are supplied, all optical-flow, tracking, and
 structure-from-motion results remain **PENDING USER EXPERIMENT**.
+
+`experiment_manifest.json` records per-video Phase 4 experiment status (`path`, `status`,
+basic metadata, and any completed validation records); its schema is
+`module5_6.experiment.default_experiment_manifest`. It currently shows both required videos as
+`pending_user_experiment` because neither has been supplied yet - see
+`docs/TRACKING_VALIDATION.md` and `docs/EXPERIMENTAL_RESULTS.md`.
