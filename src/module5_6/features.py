@@ -65,11 +65,23 @@ class FeatureMatch:
 
 @dataclass(frozen=True)
 class MatchParams:
-    """Parameters controlling descriptor matching."""
+    """Parameters controlling descriptor matching.
+
+    ``ratio_test_threshold``, if set, switches matching to Lowe's ratio test (each query
+    descriptor's two nearest train neighbors are found via ``knnMatch``, and the match is kept
+    only if the best distance is below ``ratio_test_threshold`` times the second-best distance
+    - typically ``0.75``). This targets a different failure mode than ``cross_check``/
+    ``max_distance``: a query descriptor with several similarly-close train candidates (e.g.
+    repeated/self-similar text glyphs or graphic texture) produces an ambiguous "best" match
+    that a plain distance cutoff cannot detect, since the best distance alone can still look
+    good. ``cross_check`` is ignored when ``ratio_test_threshold`` is set, because OpenCV's
+    ``BFMatcher.knnMatch`` does not support ``crossCheck``.
+    """
 
     cross_check: bool = True
     max_distance: float | None = None
     max_matches: int | None = None
+    ratio_test_threshold: float | None = None
 
 
 def match_descriptors(
@@ -81,16 +93,27 @@ def match_descriptors(
     descriptors). Returns an empty list, without raising, when either descriptor set is empty.
     ``params.max_distance`` (if given) drops matches above that Hamming distance;
     ``params.max_matches`` (if given) keeps only the closest N matches after that filter.
+    ``params.ratio_test_threshold`` (if given) instead applies Lowe's ratio test - see
+    ``MatchParams`` - and is applied before ``max_distance``/``max_matches``.
     """
     params = params or MatchParams()
     if query_descriptors.shape[0] == 0 or train_descriptors.shape[0] == 0:
         return []
-    matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=params.cross_check)
-    cv_matches = matcher.match(query_descriptors, train_descriptors)
-    matches = [
-        FeatureMatch(query_index=m.queryIdx, train_index=m.trainIdx, distance=float(m.distance))
-        for m in cv_matches
-    ]
+    if params.ratio_test_threshold is not None:
+        matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
+        knn = matcher.knnMatch(query_descriptors, train_descriptors, k=2)
+        matches = [
+            FeatureMatch(query_index=pair[0].queryIdx, train_index=pair[0].trainIdx, distance=float(pair[0].distance))
+            for pair in knn
+            if len(pair) == 2 and pair[0].distance < params.ratio_test_threshold * pair[1].distance
+        ]
+    else:
+        matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=params.cross_check)
+        cv_matches = matcher.match(query_descriptors, train_descriptors)
+        matches = [
+            FeatureMatch(query_index=m.queryIdx, train_index=m.trainIdx, distance=float(m.distance))
+            for m in cv_matches
+        ]
     matches.sort(key=lambda m: m.distance)
     if params.max_distance is not None:
         matches = [m for m in matches if m.distance <= params.max_distance]

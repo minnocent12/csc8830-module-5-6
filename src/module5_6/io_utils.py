@@ -10,6 +10,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+from PIL import Image, UnidentifiedImageError
 
 from module5_6.types import ColorOrder, ImageMetadata
 
@@ -76,6 +77,76 @@ def load_image_unchanged(path: str | Path) -> np.ndarray:
     if image is None:
         raise ValueError(f"could not decode image: {image_path}")
     return validate_image_array(image, name="loaded unchanged image").copy()
+
+
+_EXIF_ORIENTATION_TAG = 0x0112
+
+
+def read_exif_orientation(path: str | Path) -> int:
+    """Read the EXIF ``Orientation`` tag (1-8) from an image file.
+
+    Returns ``1`` (meaning "no rotation needed") both when the image genuinely has no
+    rotation and when it has no EXIF orientation tag at all (e.g. a screenshot or a
+    non-photo image) - both cases require no correction.
+    """
+    try:
+        with Image.open(path) as img:
+            orientation = img.getexif().get(_EXIF_ORIENTATION_TAG)
+    except (OSError, UnidentifiedImageError):
+        return 1
+    return int(orientation) if orientation else 1
+
+
+def apply_exif_orientation(image: np.ndarray, orientation: int) -> np.ndarray:
+    """Rotate/flip an image array to correct for a standard EXIF ``Orientation`` tag (1-8).
+
+    Never mutates the input; always returns a new array. ``orientation=1`` or any value
+    outside ``1..8`` returns an unrotated copy. See the EXIF specification's Orientation tag
+    (0x0112) for the eight standard values.
+    """
+    if orientation == 2:
+        return cv2.flip(image, 1)
+    if orientation == 3:
+        return cv2.rotate(image, cv2.ROTATE_180)
+    if orientation == 4:
+        return cv2.flip(image, 0)
+    if orientation == 5:
+        return cv2.flip(cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE), 1)
+    if orientation == 6:
+        return cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
+    if orientation == 7:
+        return cv2.flip(cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE), 1)
+    if orientation == 8:
+        return cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    return image.copy()
+
+
+def load_image_bgr_oriented(path: str | Path) -> tuple[np.ndarray, int]:
+    """Load a photo as a BGR image, with its EXIF ``Orientation`` tag applied exactly once.
+
+    Returns ``(oriented_image, orientation_used)``. Real phone photos are very commonly
+    stored using the sensor's native pixel layout (often landscape, even for a photo the
+    user took in portrait) plus an EXIF Orientation tag describing how a viewer should rotate
+    them for correct display - important for anything (like manually identified boundary
+    corners) that depends on pixel coordinates agreeing with the displayed image.
+
+    This loads the raw, un-rotated sensor pixels explicitly (``cv2.IMREAD_IGNORE_ORIENTATION``)
+    and then applies the correction ourselves, rather than relying on plain ``cv2.imread``'s own
+    built-in EXIF handling: whether that default applies the rotation automatically differs by
+    OpenCV build (observed to auto-rotate on OpenCV 5.0.0 here, but this is not guaranteed on
+    every version), so depending on it implicitly would make loaded pixel coordinates
+    non-reproducible across environments. Applying the rotation explicitly, exactly once, keeps
+    this deterministic regardless of the OpenCV build running it.
+    """
+    image_path = Path(path)
+    if not image_path.is_file():
+        raise FileNotFoundError(image_path)
+    raw = cv2.imread(str(image_path), cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)
+    if raw is None:
+        raise ValueError(f"could not decode color image: {image_path}")
+    raw = validate_image_array(raw, name="loaded BGR image", color_order="BGR").copy()
+    orientation = read_exif_orientation(path)
+    return apply_exif_orientation(raw, orientation), orientation
 
 
 def to_grayscale(image: np.ndarray, *, name: str = "image") -> np.ndarray:

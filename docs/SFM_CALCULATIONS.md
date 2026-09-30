@@ -7,9 +7,11 @@ describe, and a deterministic worked numerical example. Implementation:
 `module5_6.geometry` (point transforms), `module5_6.sfm` (multi-view coordination).
 
 The worked example in Section 4 uses invented point coordinates chosen to be easy to verify -
-it is a mathematical example, not a measurement from any real assignment image. Real four-view
-calculations remain **PENDING USER EXPERIMENT** until the actual images exist (see
-`docs/STRUCTURE_FROM_MOTION_THEORY.md`).
+it is an explanatory mathematical example, not a measurement from any real assignment image,
+and must not be read as the assignment's real result. Section 6 below reports the actual
+Phase 6 four-view registration computed from the real images, and Section 7 repeats Section
+4's `p' ~ H p` workout using one real matched point from that experiment (see
+`docs/STRUCTURE_FROM_MOTION_THEORY.md` for the full experiment summary).
 
 ## 1. Point correspondence
 
@@ -140,6 +142,124 @@ broader coverage) is additionally verified against a true projective `H_true` wi
 and end-to-end from synthetic images (detection through matching through registration) in
 `tests/test_sfm.py::test_register_view_recovers_known_projective_transform`. All of this is
 software verification against invented, exact numbers - not a real assignment measurement.
+
+## 6. Real four-view experiment results (Phase 6)
+
+Computed by `scripts/process_sfm_experiment.py` from the four real images
+(`data/sfm/view_1/IMG_7283.JPG` through `view_4/IMG_7286.JPG`), full precision and every
+artifact path in `results/sfm/sfm_summary.json`. ORB: 2000 max features per view. Matching:
+Lowe's ratio test, threshold 0.75 (see the diagnosis in `docs/EXPERIMENTAL_RESULTS.md` Section
+9 for why a plain distance cutoff was replaced). Homography: RANSAC, 3.0 px reprojection
+threshold.
+
+| View -> Reference | Reference keypoints | View keypoints | Candidate matches | Retained matches | RANSAC inliers | Inlier ratio |
+| ------------------- | --------------------- | ----------------- | -------------------- | ------------------- | ----------------- | -------------- |
+| View 2 -> View 1     | 2000                   | 2000               | 516                   | 112                  | 53                 | 47.3%          |
+| View 3 -> View 1     | 2000                   | 2000               | 409                   | 30                   | 7                  | 23.3%          |
+| View 4 -> View 1     | 2000                   | 2000               | 506                   | 72                   | 31                 | 43.1%          |
+
+| View -> Reference | Mean reproj. error (inliers) | Median | Max |
+| ------------------- | ------------------------------- | ------ | --- |
+| View 2 -> View 1     | 1.546 px                         | 1.495 px | 2.967 px |
+| View 3 -> View 1     | 0.877 px                         | 0.705 px | 1.954 px |
+| View 4 -> View 1     | 1.285 px                         | 1.134 px | 2.890 px |
+
+**Estimated homographies** (View -> View 1, full precision):
+
+```
+H(2->1) = [  1.201221344854071    0.06926693687299869  -2538.199838680171 ]
+          [ -0.27576898035706154  1.1437477768111421    -466.00064529011627 ]
+          [ -0.00010774500481609414  7.639348673605868e-06  0.9999999999999999 ]
+
+H(3->1) = [  5.916231048208298   -0.3143925574730372   -6450.046180311971 ]
+          [  1.2753148622230295   2.710262399240862     -4279.020051474201 ]
+          [  0.00045825896931884206  -4.118486634166902e-05  1.0 ]
+
+H(4->1) = [  1.1340057212751689  -0.2086325729911456    -557.842503438146 ]
+          [ -0.07920934918943608  1.217266166960261     -1418.2082895163167 ]
+          [  3.6364027262885125e-06  -0.000119138171314858  1.0 ]
+```
+
+**Boundary corners** (pixel coordinates on the EXIF-orientation-corrected image, order
+top-left/top-right/bottom-right/bottom-left; manually identified per view - see
+`scripts/process_sfm_experiment.py` module docstring for the reproducible identification
+workflow, and `docs/CAMERA_GEOMETRY.md` Section 5 for what "manually identified" does and does
+not claim):
+
+| View | Top-left | Top-right | Bottom-right | Bottom-left |
+| ---- | -------- | --------- | ------------ | ----------- |
+| View 1 (reference) | (785, 1730) | (3055, 1698) | (2995, 5305) | (865, 5165) |
+| View 2 | (2450, 2135) | (3260, 2195) | (3085, 4410) | (2400, 4440) |
+| View 3 | (1480, 1885) | (2115, 1785) | (2225, 4225) | (1495, 3760) |
+| View 4 | (1440, 2280) | (2870, 2400) | (2665, 3760) | (1600, 3560) |
+
+These are all **manually observed** boundary coordinates - every view's own corners, read
+directly off that view's image. The **homography-predicted** reference-frame boundary for each
+non-reference view (its own manual corners transformed by that view's `H` above) is recorded
+separately, per view, as `boundary_registered_into_reference_px` in
+`results/sfm/sfm_summary.json`; the reconstructed/consensus boundary
+(`boundary_reconstruction.consensus_boundary_reference_frame_px` in that same file) is the
+unweighted mean of View 1's own manual boundary and those three predicted boundaries
+(Section 4 above). Never conflate a predicted value with a manual observation - they are kept
+in separate fields throughout.
+
+Artifacts: per-view ORB keypoints, match visualizations (all retained matches, and inliers
+only), registered/warped views, per-view boundary overlays, the reconstructed reference
+boundary overlay, and a normalized top-down rectification of View 1, all under `results/sfm/`.
+
+## 7. Real mathematical workout (`p' ~ H p`, actual image data)
+
+Using one real RANSAC-inlier correspondence from the View 2 -> View 1 registration above (the
+first inlier match by descriptor-distance order; see `mathematical_workout_real_data` in
+`results/sfm/sfm_summary.json` for the exact record):
+
+Source point in View 2 (pixel coordinates), homogeneous:
+
+```
+p = [ 3062.880126953125, 3085.920166015625, 1 ]^T
+```
+
+Estimated homography `H(2->1)` (Section 6 above). Computing `q = H p`:
+
+```
+q1 = 1.201221344854071  * 3062.880126953125 + 0.06926693687299869  * 3085.920166015625 + (-2538.199838680171)
+   = 1354.7493838797873
+q2 = -0.27576898035706154 * 3062.880126953125 + 1.1437477768111421 * 3085.920166015625 + (-466.00064529011627)
+   = 2218.866354441155
+q3 = -0.00010774500481609414 * 3062.880126953125 + 7.639348673605868e-06 * 3085.920166015625 + 0.9999999999999999
+   = 0.6935643860974214
+
+q = [ 1354.7493838797873, 2218.866354441155, 0.6935643860974214 ]^T
+```
+
+Normalizing (dividing by `q3`, Section 1 of `docs/CAMERA_GEOMETRY.md`):
+
+```
+x' = q1 / q3 = 1354.7493838797873 / 0.6935643860974214 = 1953.3145170598373
+y' = q2 / q3 = 2218.866354441155  / 0.6935643860974214 = 3199.221873150624
+```
+
+This point's **actual observed** corresponding location in View 1 (the reference view, from
+the same real ORB match, not predicted) is:
+
+```
+p'_actual = [ 1953.3316650390625, 3197.491943359375 ]
+```
+
+Reprojection error:
+
+```
+e = sqrt((x' - x'_actual)^2 + (y' - y'_actual)^2)
+  = sqrt((1953.3145170598373 - 1953.3316650390625)^2 + (3199.221873150624 - 3197.491943359375)^2)
+  = 1.7300147790821565 px
+```
+
+This `p`, `H`, `q`, and `e` were independently recomputed by hand (plain scalar arithmetic, not
+calling `module5_6.geometry.apply_homography`) from the saved matrix and coordinates in
+`results/sfm/sfm_summary.json`, and matched the script's own output exactly - confirming the
+saved numbers are internally consistent, not merely plausible-looking. This is the real
+assignment mathematical workout; Section 4's synthetic `(5, -3)`-translation example remains
+only as an explanatory illustration of the method and is not this result.
 
 ## References
 

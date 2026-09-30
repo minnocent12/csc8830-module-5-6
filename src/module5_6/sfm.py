@@ -19,7 +19,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from module5_6.features import ORBParams, detect_and_describe, match_descriptors, matched_coordinates
+from module5_6.features import ORBParams, MatchParams, detect_and_describe, match_descriptors, matched_coordinates
 from module5_6.homography import HomographyParams, estimate_homography, reprojection_errors
 from module5_6.geometry import transform_boundary_points
 
@@ -45,10 +45,15 @@ def register_view(
     view_gray: np.ndarray,
     *,
     orb_params: ORBParams | None = None,
+    match_params: MatchParams | None = None,
     homography_params: HomographyParams | None = None,
     boundary_points_view: np.ndarray | None = None,
 ) -> ViewRegistration:
     """Detect features on one view, match them to an already-detected reference, and register it.
+
+    ``match_params`` controls descriptor-match filtering (e.g. a maximum Hamming distance);
+    defaults to unfiltered cross-check matching (`module5_6.features.MatchParams` defaults) when
+    omitted, as in earlier phases.
 
     ``ViewRegistration.mean_reprojection_error`` averages over inlier matches only (per
     ``HomographyParams.method``'s inlier mask) - with the default ``"ransac"`` method, a
@@ -60,7 +65,7 @@ def register_view(
     four matches are found, or if the matched points are degenerate/collinear.
     """
     view_keypoints, view_descriptors = detect_and_describe(view_gray, params=orb_params)
-    matches = match_descriptors(view_descriptors, reference_descriptors)
+    matches = match_descriptors(view_descriptors, reference_descriptors, params=match_params)
     if len(matches) < 4:
         raise ValueError(
             f"only {len(matches)} descriptor match(es) found for view {view_id!r}; "
@@ -124,6 +129,7 @@ def register_views(
     other_views_gray: dict[str, np.ndarray],
     *,
     orb_params: ORBParams | None = None,
+    match_params: MatchParams | None = None,
     homography_params: HomographyParams | None = None,
     reference_boundary_points: np.ndarray | None = None,
     boundary_points_by_view: dict[str, np.ndarray] | None = None,
@@ -147,6 +153,7 @@ def register_views(
             view_id,
             view_gray,
             orb_params=orb_params,
+            match_params=match_params,
             homography_params=homography_params,
             boundary_points_view=boundary_points_by_view.get(view_id),
         )

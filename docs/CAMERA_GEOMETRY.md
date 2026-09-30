@@ -5,10 +5,11 @@ IMPLEMENTATION_PLAN.md Sections 15-16 describe, ending at the homography relatio
 `module5_6.homography` and `module5_6.sfm` implement. `docs/SFM_CALCULATIONS.md` continues
 with the concrete estimation/reprojection workflow and a worked numerical example.
 
-No numeric value in this document is measured from a real camera; it defines the general
-symbols (`K`, `R`, `t`, `n`, `d`) that will be filled in with real, recorded values only once
-the four real assignment images and any actually-available camera information exist
-(`module5_6.camera.ViewMetadata`) - see `docs/STRUCTURE_FROM_MOTION_THEORY.md`.
+Sections 1-4 below define the general symbols (`K`, `R`, `t`, `n`, `d`) with no numeric value
+measured from a real camera. Section 5 then states, for the real Phase 6 four-view experiment,
+exactly which of those symbols are known (and from what real source) and which remain
+genuinely unknown - see `docs/STRUCTURE_FROM_MOTION_THEORY.md` and
+`docs/SFM_CALCULATIONS.md` for the full real results.
 
 ## 1. Homogeneous coordinates
 
@@ -107,6 +108,23 @@ Section 2) without ever separately solving for `K`, `R`, `t`, `n`, or `d`.
 `module5_6.geometry.apply_homography` implements the point-mapping side of this
 (`x' = H x`, normalized); `module5_6.homography.estimate_homography` implements the
 correspondence-to-`H` estimation side.
+
+## 5. Known and unknown quantities for the Phase 6 real experiment
+
+Connecting the model above to the actual four photographs (`data/sfm/view_1/` through
+`view_4/`, `results/sfm/sfm_summary.json`):
+
+| Quantity | Status | Source |
+| -------- | ------ | ------ |
+| Image coordinates `[u, v]` (ORB keypoints, manual boundary corners) | **Known (measured)** | Detected/read directly from the real image pixels (`module5_6.features`, manual grid-zoom inspection - see `docs/SFM_CALCULATIONS.md` Section 6) |
+| Approximate camera position/orientation, distance to object | **Known (user-recorded, approximate)** | User-stated capture notes (e.g. "~9 in, centered/front"); explicitly not a calibrated pose - see `docs/STRUCTURE_FROM_MOTION_THEORY.md` Section 0 and the camera-position table in `docs/SFM_CALCULATIONS.md` Section 6 |
+| Camera/lens make, model, focal length (mm), f-number, exposure time, ISO | **Known (actual EXIF)** | Read directly from each JPEG's EXIF via PIL (`scripts/process_sfm_experiment.py::extract_real_exif`); identical device/lens across all four views (Apple iPhone 15 Pro Max, 6.765 mm, f/1.78) |
+| Calibrated intrinsic matrix `K` (`fx, fy, cx, cy` in pixel units) | **Unknown** | No calibration procedure (e.g. checkerboard, as in Module 2) was performed for this camera; the EXIF focal length is in millimeters, not pixel units, and converting it would require the sensor's real pixel pitch, which is not available - per Section 3 above, this is never invented |
+| Exact rotation `R`, translation `t` (camera pose per view) | **Unknown** | Not estimated - the planar-homography approach this module uses (Section 4) recovers `H` directly from correspondences without separately solving for `K`, `R`, `t`; recovering `R`/`t` from `H` would itself require a known `K` (Section 4) |
+| Planar homography `H` (View N -> View 1) | **Estimated from real image correspondences** | RANSAC `cv2.findHomography` on real ORB matches (`module5_6.homography.estimate_homography`); full matrices and reprojection error in `docs/SFM_CALCULATIONS.md` Section 6 |
+
+No missing value in this table was filled with an invented number anywhere in this module's
+code, documentation, or results.
 
 ## References
 

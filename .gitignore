@@ -81,3 +81,10 @@ docs/report/figures/*
 !results/tracking/video_2/*.png
 !results/tracking/video_2/*.json
 !results/metrics/*.csv
+
+# Phase 6 keeps the derived SfM figures (JPEG - photographic report figures, not
+# pixel-critical data, so lossy compression keeps the repo small) and compact numerical
+# outputs (homographies, reprojection stats, camera metadata, summary) as real submission
+# evidence, same policy as the optical-flow/tracking evidence above.
+!results/sfm/*.jpg
+!results/sfm/*.json

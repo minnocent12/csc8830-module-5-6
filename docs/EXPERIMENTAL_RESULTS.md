@@ -1,14 +1,16 @@
 # Experimental Results
 
-Consolidated report-ready results for Question 1's real-video experiments: optical-flow
-evidence for each video, and the two-consecutive-frame pixel-location tracking validation.
-Structure-from-motion experimental results (Question 2) are a later phase and are not covered
-here.
+Consolidated report-ready results for both assignment questions: Question 1's real-video
+experiments (optical-flow evidence for each video, and the two-consecutive-frame
+pixel-location tracking validation), and Question 2's real four-view Structure From Motion
+experiment (Section 9).
 
 ## Status
 
 **Optical-flow evidence and tracking validation are COMPLETE for both required videos**, using
-`data/videos/video_1/IMG_7272.MOV` and `data/videos/video_2/IMG_7275.MOV`.
+`data/videos/video_1/IMG_7272.MOV` and `data/videos/video_2/IMG_7275.MOV`. **The four-view SfM
+experiment (Question 2) is COMPLETE** using `data/sfm/view_1/IMG_7283.JPG` through
+`view_4/IMG_7286.JPG` - see Section 9.
 
 | Video   | Directory               | Status    |
 | ------- | ------------------------ | --------- |
@@ -204,3 +206,115 @@ supported observation than any single aggregate accuracy claim would be.
   `tests/test_experiment.py`) verify the underlying code against synthetic fixtures with known
   answers; they are software-correctness evidence, not a substitute for the real-video results
   in this document, and none of their values appear above.
+
+## 9. Structure From Motion: real four-view experiment (Question 2)
+
+Full theory: `docs/STRUCTURE_FROM_MOTION_THEORY.md`. Full derivations, homography matrices,
+per-view boundary corners, and the real mathematical workout: `docs/SFM_CALCULATIONS.md`
+Sections 6-7. Known/unknown camera quantities: `docs/CAMERA_GEOMETRY.md` Section 5. Raw data:
+`results/sfm/sfm_summary.json`. Reproduce with `python scripts/process_sfm_experiment.py`.
+
+### 9.1 Object and source images
+
+Object: the front cover of a paperback book (*The Tempest*, William Shakespeare, Folger
+Shakespeare Library "Updated Edition"), a flat/planar, richly textured printed surface, treated
+per the assignment's explicit planar-object simplification. All four images: Apple iPhone 15
+Pro Max, 6.765 mm / f/1.78 (identical device and lens, real EXIF), captured within 72 seconds
+of each other (15:26:16-15:27:28 on the capture date), confirming a single stationary-object
+session. Each photo is 4284x5712 px after EXIF-orientation correction (raw sensor layout is
+landscape 5712x4284; `Orientation=6` in all four files' EXIF - see
+`module5_6.io_utils.load_image_bgr_oriented`).
+
+**Image inspection** (all four, before processing): sharp focus, no motion blur, no
+significant glare/reflection on the matte cover surface, full front cover and all four of its
+corners visible in every view (Views 2-4 also show the spine or page edges at their oblique
+angles, as expected from the capture notes below - those regions are not part of the tracked
+plane).
+
+### 9.2 Camera position table
+
+User-recorded approximate capture information (never treated as a calibrated pose; see
+`docs/CAMERA_GEOMETRY.md` Section 5):
+
+| View   | File           | Approximate position           | Approx. object distance | Camera metadata (real EXIF)                       | Notes |
+| ------ | -------------- | -------------------------------- | -------------------------- | ---------------------------------------------------- | ----- |
+| View 1 | `IMG_7283.JPG` | Centered/front, aimed toward object center | ~9 in (0.2286 m)  | iPhone 15 Pro Max, 6.765 mm, f/1.78, 1/60 s, ISO 400  | Reference view |
+| View 2 | `IMG_7284.JPG` | Left-side, aimed back toward center | ~26 in (0.6604 m)  | iPhone 15 Pro Max, 6.765 mm, f/1.78, 1/60 s, ISO 320  | Spine visible at this angle |
+| View 3 | `IMG_7285.JPG` | Right-side, aimed back toward center | ~26 in (0.6604 m) | iPhone 15 Pro Max, 6.765 mm, f/1.78, 1/60 s, ISO 320  | Page edges visible at this angle |
+| View 4 | `IMG_7286.JPG` | Vertically displaced/angled, aimed toward object | ~26 in (0.6604 m) | iPhone 15 Pro Max, 6.765 mm, f/1.78, 1/60 s, ISO 400  | Elevated viewpoint; top page-edge visible |
+
+Distances are exactly the user's stated approximate measurements (converted in./m), not
+measured more precisely than that. No calibrated intrinsic matrix, exact rotation, or exact
+translation is reported for any view - see `docs/CAMERA_GEOMETRY.md` Section 5.
+
+### 9.3 Feature matching and homography results
+
+| View -> Reference | Candidate matches | Retained matches | RANSAC inliers | Inlier ratio | Mean reproj. error (inliers) |
+| ------------------- | -------------------- | ------------------- | ----------------- | -------------- | ------------------------------- |
+| View 2 -> View 1     | 516                   | 112                  | 53                 | 47.3%          | 1.546 px                         |
+| View 3 -> View 1     | 409                   | 30                   | 7                  | 23.3%          | 0.877 px                         |
+| View 4 -> View 1     | 506                   | 72                   | 31                 | 43.1%          | 1.285 px                         |
+
+ORB: 2000 max features/view. Matching: Lowe's ratio test (0.75). Homography: RANSAC, 3.0 px
+threshold. Full homography matrices: `docs/SFM_CALCULATIONS.md` Section 6.
+
+**Diagnosis - View 3's lower match yield.** An initial run using only a fixed
+maximum-Hamming-distance match filter (no ratio test) registered View 3 with just 7 of 324
+retained matches as RANSAC inliers (2.2%), far below View 2/4's ~26-27% under the same filter.
+Inspecting the match visualization
+(`results/sfm/view_3_to_view_1_matches_all.jpg`, regenerated before the ratio-test fix) showed
+correspondences concentrated on the cover's printed title text and banner ("The Tempest",
+"UPDATED EDITION Folger SHAKESPEARE LIBRARY"), which contains repeated/self-similar
+letterforms; at View 3's viewing angle, several different occurrences of similar glyphs
+produced matches that looked locally plausible (a good best-distance score) but were globally
+inconsistent with each other, which RANSAC correctly rejected as outliers in bulk. Switching
+the match filter to Lowe's ratio test (`module5_6.features.MatchParams.ratio_test_threshold`,
+which directly detects this kind of ambiguity - a match is kept only if its best distance is
+well below its second-best distance) reduced the *retained* match count for every view
+(fewer, more confident candidate matches survive) but substantially increased every view's
+*inlier ratio*, most dramatically View 3's (2.2% -> 23.3%); View 3's absolute inlier count (7)
+remains the lowest of the three views, and this is reported as the genuine, real result of
+this experiment rather than tuned further - see `scripts/process_sfm_experiment.py` for the
+full parameter documentation.
+
+### 9.4 Boundary reconstruction
+
+Four real boundary corners were manually identified in each view (reproducible HSV
+color-threshold coarse localization plus zoomed pixel-grid visual confirmation - see
+`scripts/process_sfm_experiment.py` module docstring); full coordinates in
+`docs/SFM_CALCULATIONS.md` Section 6. View 1's own manual boundary and the three
+homography-registered boundaries from Views 2-4 agree closely (median corner disagreement on
+the order of tens of pixels out of a ~4300x5700 px image - see
+`results/sfm/reference_boundary_reconstruction.jpg`, red = View 1's manual boundary, yellow =
+the unweighted-mean consensus boundary). A normalized top-down rectification of View 1's cover
+(`results/sfm/view_1_top_down_rectified.jpg`) visually confirms the recovered homography and
+boundary: the rectified cover appears as a clean axis-aligned rectangle with the printed text
+horizontal, consistent with a correctly estimated planar registration.
+
+### 9.5 Real mathematical workout
+
+One real `p' ~ H p` calculation (View 2 -> View 1, one actual RANSAC-inlier correspondence),
+independently hand-verified against the saved homography and coordinates: full derivation in
+`docs/SFM_CALCULATIONS.md` Section 7. Result: predicted `(1953.315, 3199.222)` vs. actual
+observed `(1953.332, 3197.492)`, reprojection error `1.730 px`.
+
+### 9.6 Terminology and scope
+
+This is a **planar Structure From Motion / projective (homography) registration experiment**
+across four real viewpoints of one flat object - not dense/full 3D reconstruction, a
+fundamental/essential-matrix recovery, or a calibrated camera pose estimate. See
+`docs/STRUCTURE_FROM_MOTION_THEORY.md` Section 4 for the full scope statement.
+
+### 9.7 Limitations and what remains unknown
+
+- View 3's absolute RANSAC inlier count (7) is markedly lower than View 2/4's (53, 31); its
+  homography and reprojection statistics should be read with that smaller sample size in mind,
+  even though its reprojection error is itself low (Section 9.3).
+- No calibrated intrinsic matrix `K` and no exact rotation/translation exist for any view (only
+  real EXIF focal length and user-recorded approximate position/distance) -
+  `docs/CAMERA_GEOMETRY.md` Section 5.
+- The four boundary corners were identified by visual inspection of zoomed pixel-grid crops,
+  not an instrument; they carry the corresponding precision limits (see the per-corner
+  discussion in `scripts/process_sfm_experiment.py`'s module docstring).
+- This experiment covers one planar object; it does not generalize to non-planar scenes (see
+  IMPLEMENTATION_PLAN.md Section 21 for the optional, unimplemented non-planar extension).
