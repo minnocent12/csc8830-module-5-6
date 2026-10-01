@@ -22,7 +22,8 @@ dist/
 htmlcov/
 
 # Streamlit and operating-system files
-.streamlit/
+.streamlit/*
+!.streamlit/config.toml
 .streamlit/secrets.toml
 .DS_Store
 
