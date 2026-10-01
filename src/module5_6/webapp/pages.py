@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 
 import cv2
@@ -497,6 +498,352 @@ def _optical_flow_page() -> None:
         input_path.unlink(missing_ok=True)
 
 
+_TRACKING_RUN_KEY = "tracking_completed_run"
+
+
+@dataclass(frozen=True)
+class _TrackingRun:
+    """What a completed Motion Tracking run needs to be redisplayed and validated.
+
+    Kept in ``st.session_state`` so the manual-validation widgets, whose changes rerun the
+    script with the run button released, keep working on the same result.
+    """
+
+    start_frame: int
+    frame_count: int
+    feature_count: int
+    features_image: np.ndarray  # display-ready RGB
+    tracked_image: np.ndarray
+    displacement_image: np.ndarray | None
+    trajectory_image: np.ndarray
+    trajectory_count: int
+    alive_full_length: int
+    valid_previous: np.ndarray
+    valid_next: np.ndarray
+    valid_error: np.ndarray
+    valid_fb_error: np.ndarray | None
+    frame2_bgr: np.ndarray  # source Frame 2 for the validation crop and overlay
+
+
+def _tracking_signature(
+    upload,
+    start_seconds: float,
+    frames_to_load: int,
+    shi_tomasi_params: ShiTomasiParams,
+    lk_params: LucasKanadeParams,
+    validate_fb: bool,
+    max_fb_error: float,
+) -> tuple:
+    """Everything that determines a tracking result; manual-validation inputs are excluded.
+
+    The upload is identified by Streamlit's per-upload ``file_id`` (new for every upload,
+    even of a same-named file) plus name and size, so the video is never re-hashed.
+    """
+    return (
+        (upload.file_id, upload.name, upload.size),
+        start_seconds,
+        frames_to_load,
+        repr(shi_tomasi_params),
+        repr(lk_params),
+        validate_fb,
+        max_fb_error,
+    )
+
+
+def _compute_tracking_run(
+    input_path: Path,
+    metadata,
+    start_seconds: float,
+    frames_to_load: int,
+    shi_tomasi_params: ShiTomasiParams,
+    lk_params: LucasKanadeParams,
+    validate_fb: bool,
+    max_fb_error: float,
+) -> _TrackingRun | None:
+    """Run detection and tracking exactly as before; ``None`` after showing why it could not run.
+
+    Called only when "Detect and track features" is clicked. Drawn evidence images are made
+    here once, with the same calls as before, so later reruns only redisplay them.
+    """
+    start_frame = int(round(start_seconds * metadata.fps))
+    start_frame = max(0, min(start_frame, max(0, metadata.frame_count - 2)))
+    end_frame = min(metadata.frame_count, start_frame + frames_to_load)
+
+    try:
+        frames = read_frame_range(input_path, start_frame, end_frame)
+    except ValueError as exc:
+        st.error(f"Could not read the requested frames: {exc}")
+        return None
+
+    if len(frames) < 2:
+        st.error("At least two frames are required to track features; choose an earlier start time.")
+        return None
+
+    grays = [to_grayscale(frame) for frame in frames]
+    features = detect_features(grays[0], params=shi_tomasi_params)
+    if features.shape[0] == 0:
+        st.warning(
+            "No Shi-Tomasi features were detected on Frame 1. Try a lower quality level or "
+            "a smaller min-distance."
+        )
+        return None
+
+    # Two-frame tracking problem: Frame 1 (grays[0]) -> Frame 2 (grays[1]).
+    tracked = track_points(grays[0], grays[1], features, params=lk_params)
+
+    if validate_fb:
+        fb_result = forward_backward_validate(grays[0], grays[1], features, params=lk_params)
+        mask = valid_forward_backward_mask(fb_result, max_fb_error=max_fb_error)
+    else:
+        fb_result = None
+        mask = tracked.status
+
+    valid_previous = tracked.previous_points[mask]
+    valid_next = tracked.next_points[mask]
+    valid_error = tracked.error[mask]
+    valid_fb_error = fb_result.fb_error[mask] if fb_result is not None else None
+
+    trajectories = track_trajectories(grays, shi_tomasi_params=shi_tomasi_params, lk_params=lk_params)
+    alive_full_length = sum(1 for t in trajectories if len(t.positions) == len(grays))
+    return _TrackingRun(
+        start_frame=start_frame,
+        frame_count=len(frames),
+        feature_count=int(features.shape[0]),
+        features_image=_bgr_to_rgb(draw_tracked_points(frames[0], features, color=(0, 255, 0))),
+        tracked_image=_bgr_to_rgb(draw_tracked_points(frames[1], valid_next, color=(0, 0, 255))),
+        displacement_image=(
+            _bgr_to_rgb(draw_displacement_vectors(frames[0], valid_previous, valid_next))
+            if valid_previous.shape[0] > 0
+            else None
+        ),
+        trajectory_image=_bgr_to_rgb(draw_trajectories(frames[-1], trajectories)),
+        trajectory_count=len(trajectories),
+        alive_full_length=alive_full_length,
+        valid_previous=valid_previous,
+        valid_next=valid_next,
+        valid_error=valid_error,
+        valid_fb_error=valid_fb_error,
+        frame2_bgr=frames[1],
+    )
+
+
+def _render_tracking_run(run: _TrackingRun) -> None:
+    """Show a completed run and the manual validation; reruns redisplay the stored run."""
+    start_frame = run.start_frame
+    valid_previous, valid_next = run.valid_previous, run.valid_next
+    valid_error, valid_fb_error = run.valid_error, run.valid_fb_error
+
+    section_header("Tracking Evidence")
+    image_comparison(
+        ImageItem(
+            run.features_image,
+            caption=f"Frame {start_frame}: detected Shi-Tomasi features ({run.feature_count})",
+        ),
+        ImageItem(
+            run.tracked_image,
+            caption=f"Frame {start_frame + 1}: tracked features ({valid_next.shape[0]} valid)",
+        ),
+        bordered=False,
+    )
+
+    if valid_previous.shape[0] == 0:
+        st.warning(
+            "No tracks passed validation. Try relaxing the forward-backward threshold or "
+            "adjusting the Lucas-Kanade window size."
+        )
+
+    # Displacement vectors and track history side by side: full-width portrait frames
+    # would otherwise each fill several screens.
+    displacement_column, history_column = st.columns(2)
+    if valid_previous.shape[0] > 0:
+        with displacement_column:
+            image_card(
+                run.displacement_image,
+                title="Displacement vectors (Frame 1 -> Frame 2)",
+                caption="Displacement vector (u, v) for each valid tracked point",
+                bordered=False,
+            )
+    with history_column:
+        image_card(
+            run.trajectory_image,
+            title="Track history across the loaded frames",
+            caption=(
+                f"Trajectories over {run.frame_count} frames (frames {start_frame} - "
+                f"{start_frame + run.frame_count - 1}); {run.alive_full_length} of {run.trajectory_count} "
+                "tracked points survived the full window"
+            ),
+            bordered=False,
+        )
+
+    if valid_previous.shape[0] > 0:
+        displacements = valid_next - valid_previous
+        magnitudes = displacement_magnitude(displacements)
+
+        section_header("Selected Statistics")
+        metric_row(
+            [
+                ("Detected features", run.feature_count),
+                ("Valid tracks", valid_previous.shape[0]),
+                ("Mean |displacement| (px)", f"{float(magnitudes.mean()):.3f}"),
+                ("Max |displacement| (px)", f"{float(magnitudes.max()):.3f}"),
+            ]
+        )
+
+        section_header("Tracking Data", description="Point coordinates and tracking-quality metrics")
+        st.caption(
+            "'LK consistency error' and 'Forward-backward consistency (px)' below are "
+            "algorithmic self-consistency signals reported by this run's Lucas-Kanade "
+            "tracker - they measure how well the tracker's own model fit, and how well a "
+            "point tracked forward then backward returns to where it started. They are "
+            "**not** the assignment's required pixel-location validation, which compares a "
+            "predicted location against an actual observed location manually identified in "
+            "a real video frame - that comparison is below, on this uploaded video "
+            "(the completed real result for the two required assignment videos is shown "
+            "when no video is uploaded, and in docs/EXPERIMENTAL_RESULTS.md Section 5)."
+        )
+        max_rows = 200
+        rows = []
+        for index in range(min(valid_previous.shape[0], max_rows)):
+            row = {
+                "Point": index,
+                "Frame1 x": round(float(valid_previous[index, 0]), 2),
+                "Frame1 y": round(float(valid_previous[index, 1]), 2),
+                "Frame2 x (predicted)": round(float(valid_next[index, 0]), 2),
+                "Frame2 y (predicted)": round(float(valid_next[index, 1]), 2),
+                "u": round(float(displacements[index, 0]), 2),
+                "v": round(float(displacements[index, 1]), 2),
+                "Magnitude (px)": round(float(magnitudes[index]), 2),
+                "LK consistency error (algorithmic)": round(float(valid_error[index]), 4),
+            }
+            if valid_fb_error is not None:
+                row["Forward-backward consistency (px)"] = round(float(valid_fb_error[index]), 3)
+            rows.append(row)
+        data_table(rows)
+        if valid_previous.shape[0] > max_rows:
+            st.caption(f"Showing the first {max_rows} of {valid_previous.shape[0]} valid tracks.")
+        st.caption(
+            "Frame 2 coordinates above are the tracker's *predicted* location, not a "
+            "manually observed one; no actual observed pixel location has been recorded "
+            "for these points."
+        )
+
+        section_header(
+            "Manual Validation",
+            description="Two-frame pixel-location validation (manual, professor-required)",
+        )
+        st.caption(
+            "IMPLEMENTATION_PLAN.md Section 12: pick a point above, see its algorithmic "
+            "Lucas-Kanade prediction, then **you** visually determine and enter where that "
+            "point actually is in Frame 2. Unlike 'LK consistency error' and "
+            "'Forward-backward consistency' above - which never look at Frame 2 as an "
+            "image - this produces a meaningful pixel error only if the observed "
+            "coordinate truly comes from inspecting Frame 2, not from accepting a default "
+            "or copying the prediction."
+        )
+        point_index = int(
+            st.number_input(
+                "Point index to validate (row number from the table above)",
+                min_value=0,
+                max_value=valid_previous.shape[0] - 1,
+                value=0,
+                step=1,
+                key="tracking_validation_point_index",
+            )
+        )
+        v1, v2 = st.columns(2)
+        video_id = v1.text_input("Video ID for this record", value="video_1", key="tracking_validation_video_id")
+        point_label = v2.text_input("Point label", value="P1", key="tracking_validation_point_label")
+        x1, y1 = float(valid_previous[point_index, 0]), float(valid_previous[point_index, 1])
+        predicted_x2, predicted_y2 = float(valid_next[point_index, 0]), float(valid_next[point_index, 1])
+        st.write(
+            f"Frame 1 point: ({x1:.2f}, {y1:.2f})  |  Algorithmic predicted Frame 2 point: "
+            f"({predicted_x2:.2f}, {predicted_y2:.2f})"
+        )
+
+        crop_half = 60
+        crop_center_x, crop_center_y = int(round(predicted_x2)), int(round(predicted_y2))
+        frame2_height, frame2_width = run.frame2_bgr.shape[:2]
+        x_lo = max(0, crop_center_x - crop_half)
+        x_hi = min(frame2_width, crop_center_x + crop_half)
+        y_lo = max(0, crop_center_y - crop_half)
+        y_hi = min(frame2_height, crop_center_y + crop_half)
+        crop = run.frame2_bgr[y_lo:y_hi, x_lo:x_hi]
+        st.image(
+            _bgr_to_rgb(crop),
+            caption=(
+                f"Frame 2 crop around the prediction (x in [{x_lo}, {x_hi}), "
+                f"y in [{y_lo}, {y_hi})) - inspect this to determine the actual location"
+            ),
+            width="stretch",
+        )
+
+        confirmed = st.checkbox(
+            "I have visually inspected Frame 2 above and the coordinates below reflect "
+            "what I actually observed (not copied from the prediction)",
+            value=False,
+            key="tracking_validation_confirmed",
+        )
+        oc1, oc2 = st.columns(2)
+        observed_x = float(
+            oc1.number_input("Observed Frame 2 x", value=x1, step=1.0, key="tracking_validation_observed_x")
+        )
+        observed_y = float(
+            oc2.number_input("Observed Frame 2 y", value=y1, step=1.0, key="tracking_validation_observed_y")
+        )
+
+        if confirmed:
+            validation_record = record_observation(
+                TrackingValidationRecord(
+                    video_id=video_id,
+                    point_label=point_label,
+                    frame1_index=start_frame,
+                    frame2_index=start_frame + 1,
+                    x1=x1,
+                    y1=y1,
+                    predicted_x2=predicted_x2,
+                    predicted_y2=predicted_y2,
+                ),
+                observed_x=observed_x,
+                observed_y=observed_y,
+                method="Streamlit Motion Tracking page - manual visual inspection",
+            )
+            metric_card("Pixel error e (predicted vs. observed)", f"{validation_record.pixel_error:.3f} px")
+            st.image(
+                _bgr_to_rgb(draw_validation_overlay(run.frame2_bgr, validation_record)),
+                caption="Predicted (red) vs. observed (green) Frame 2 location",
+                width="stretch",
+            )
+            download_action(
+                "Download validation record (JSON)",
+                json.dumps(validation_record.to_dict(), indent=2),
+                file_name=f"{video_id}_{point_label}_validation_record.json",
+                mime="application/json",
+                key="tracking_validation_download",
+            )
+            st.caption(
+                "Save this record under results/tracking/<video_id>/, or upload it on the "
+                "Experiments & Results page, to include it in the consolidated validation "
+                "table. This pixel error is real and computed from the coordinates you "
+                "entered - it is only meaningful evidence if the observed coordinate truly "
+                "came from inspecting Frame 2."
+            )
+        else:
+            st.warning(
+                "Manual pixel-location validation for this point is pending until you inspect "
+                "Frame 2 above, enter the actual observed coordinate, and check the "
+                "confirmation box."
+            )
+
+    section_header("Interpretation")
+    st.caption(
+        "These trajectories are computed live from whatever video was uploaded above; they "
+        "are exploratory tooling, not the assignment's required experimental evidence. The "
+        "committed two-consecutive-frame validation of the two required assignment videos is "
+        "shown on this page when no video is uploaded, and written up in "
+        "docs/EXPERIMENTAL_RESULTS.md Section 5."
+    )
+
+
 _MOTION_TRACKING_INTRO = (
     "Question 1: Shi-Tomasi feature detection plus pyramidal Lucas-Kanade tracking between "
     "consecutive frames, following the two-frame tracking problem from "
@@ -634,260 +981,36 @@ def _motion_tracking_page() -> None:
 
             run = st.button("Detect and track features", type="primary")
 
-        if not run:
-            pending_experiment_banner(
-                "Set the frame window and detector/tracker settings, then run to view results."
+        signature = _tracking_signature(
+            upload, start_seconds, frames_to_load, shi_tomasi_params, lk_params, validate_fb, max_fb_error
+        )
+        if run:
+            tracking_run = _compute_tracking_run(
+                input_path, metadata, start_seconds, frames_to_load,
+                shi_tomasi_params, lk_params, validate_fb, max_fb_error,
             )
-            return
-
-        start_frame = int(round(start_seconds * metadata.fps))
-        start_frame = max(0, min(start_frame, max(0, metadata.frame_count - 2)))
-        end_frame = min(metadata.frame_count, start_frame + frames_to_load)
-
-        try:
-            frames = read_frame_range(input_path, start_frame, end_frame)
-        except ValueError as exc:
-            st.error(f"Could not read the requested frames: {exc}")
-            return
-
-        if len(frames) < 2:
-            st.error("At least two frames are required to track features; choose an earlier start time.")
-            return
-
-        grays = [to_grayscale(frame) for frame in frames]
-        features = detect_features(grays[0], params=shi_tomasi_params)
-        if features.shape[0] == 0:
-            st.warning(
-                "No Shi-Tomasi features were detected on Frame 1. Try a lower quality level or "
-                "a smaller min-distance."
-            )
-            return
-
-        # Two-frame tracking problem: Frame 1 (grays[0]) -> Frame 2 (grays[1]).
-        tracked = track_points(grays[0], grays[1], features, params=lk_params)
-
-        if validate_fb:
-            fb_result = forward_backward_validate(grays[0], grays[1], features, params=lk_params)
-            mask = valid_forward_backward_mask(fb_result, max_fb_error=max_fb_error)
+            if tracking_run is None:
+                st.session_state.pop(_TRACKING_RUN_KEY, None)
+                return
+            st.session_state[_TRACKING_RUN_KEY] = (signature, tracking_run)
         else:
-            fb_result = None
-            mask = tracked.status
-
-        valid_previous = tracked.previous_points[mask]
-        valid_next = tracked.next_points[mask]
-        valid_error = tracked.error[mask]
-        valid_fb_error = fb_result.fb_error[mask] if fb_result is not None else None
-
-        section_header("Tracking Evidence")
-        image_comparison(
-            ImageItem(
-                _bgr_to_rgb(draw_tracked_points(frames[0], features, color=(0, 255, 0))),
-                caption=f"Frame {start_frame}: detected Shi-Tomasi features ({features.shape[0]})",
-            ),
-            ImageItem(
-                _bgr_to_rgb(draw_tracked_points(frames[1], valid_next, color=(0, 0, 255))),
-                caption=f"Frame {start_frame + 1}: tracked features ({valid_next.shape[0]} valid)",
-            ),
-            bordered=False,
-        )
-
-        if valid_previous.shape[0] == 0:
-            st.warning(
-                "No tracks passed validation. Try relaxing the forward-backward threshold or "
-                "adjusting the Lucas-Kanade window size."
-            )
-
-        trajectories = track_trajectories(grays, shi_tomasi_params=shi_tomasi_params, lk_params=lk_params)
-        alive_full_length = sum(1 for t in trajectories if len(t.positions) == len(grays))
-        # Displacement vectors and track history side by side: full-width portrait frames
-        # would otherwise each fill several screens.
-        displacement_column, history_column = st.columns(2)
-        if valid_previous.shape[0] > 0:
-            with displacement_column:
-                image_card(
-                    _bgr_to_rgb(draw_displacement_vectors(frames[0], valid_previous, valid_next)),
-                    title="Displacement vectors (Frame 1 -> Frame 2)",
-                    caption="Displacement vector (u, v) for each valid tracked point",
-                    bordered=False,
-                )
-        with history_column:
-            image_card(
-                _bgr_to_rgb(draw_trajectories(frames[-1], trajectories)),
-                title="Track history across the loaded frames",
-                caption=(
-                    f"Trajectories over {len(frames)} frames (frames {start_frame} - "
-                    f"{start_frame + len(frames) - 1}); {alive_full_length} of {len(trajectories)} "
-                    "tracked points survived the full window"
-                ),
-                bordered=False,
-            )
-
-        if valid_previous.shape[0] > 0:
-            displacements = valid_next - valid_previous
-            magnitudes = displacement_magnitude(displacements)
-
-            section_header("Selected Statistics")
-            metric_row(
-                [
-                    ("Detected features", features.shape[0]),
-                    ("Valid tracks", valid_previous.shape[0]),
-                    ("Mean |displacement| (px)", f"{float(magnitudes.mean()):.3f}"),
-                    ("Max |displacement| (px)", f"{float(magnitudes.max()):.3f}"),
-                ]
-            )
-
-            section_header("Tracking Data", description="Point coordinates and tracking-quality metrics")
-            st.caption(
-                "'LK consistency error' and 'Forward-backward consistency (px)' below are "
-                "algorithmic self-consistency signals reported by this run's Lucas-Kanade "
-                "tracker - they measure how well the tracker's own model fit, and how well a "
-                "point tracked forward then backward returns to where it started. They are "
-                "**not** the assignment's required pixel-location validation, which compares a "
-                "predicted location against an actual observed location manually identified in "
-                "a real video frame - that comparison is below, on this uploaded video "
-                "(the completed real result for the two required assignment videos is shown "
-                "when no video is uploaded, and in docs/EXPERIMENTAL_RESULTS.md Section 5)."
-            )
-            max_rows = 200
-            rows = []
-            for index in range(min(valid_previous.shape[0], max_rows)):
-                row = {
-                    "Point": index,
-                    "Frame1 x": round(float(valid_previous[index, 0]), 2),
-                    "Frame1 y": round(float(valid_previous[index, 1]), 2),
-                    "Frame2 x (predicted)": round(float(valid_next[index, 0]), 2),
-                    "Frame2 y (predicted)": round(float(valid_next[index, 1]), 2),
-                    "u": round(float(displacements[index, 0]), 2),
-                    "v": round(float(displacements[index, 1]), 2),
-                    "Magnitude (px)": round(float(magnitudes[index]), 2),
-                    "LK consistency error (algorithmic)": round(float(valid_error[index]), 4),
-                }
-                if valid_fb_error is not None:
-                    row["Forward-backward consistency (px)"] = round(float(valid_fb_error[index]), 3)
-                rows.append(row)
-            data_table(rows)
-            if valid_previous.shape[0] > max_rows:
-                st.caption(f"Showing the first {max_rows} of {valid_previous.shape[0]} valid tracks.")
-            st.caption(
-                "Frame 2 coordinates above are the tracker's *predicted* location, not a "
-                "manually observed one; no actual observed pixel location has been recorded "
-                "for these points."
-            )
-
-            section_header(
-                "Manual Validation",
-                description="Two-frame pixel-location validation (manual, professor-required)",
-            )
-            st.caption(
-                "IMPLEMENTATION_PLAN.md Section 12: pick a point above, see its algorithmic "
-                "Lucas-Kanade prediction, then **you** visually determine and enter where that "
-                "point actually is in Frame 2. Unlike 'LK consistency error' and "
-                "'Forward-backward consistency' above - which never look at Frame 2 as an "
-                "image - this produces a meaningful pixel error only if the observed "
-                "coordinate truly comes from inspecting Frame 2, not from accepting a default "
-                "or copying the prediction."
-            )
-            point_index = int(
-                st.number_input(
-                    "Point index to validate (row number from the table above)",
-                    min_value=0,
-                    max_value=valid_previous.shape[0] - 1,
-                    value=0,
-                    step=1,
-                    key="tracking_validation_point_index",
-                )
-            )
-            v1, v2 = st.columns(2)
-            video_id = v1.text_input("Video ID for this record", value="video_1", key="tracking_validation_video_id")
-            point_label = v2.text_input("Point label", value="P1", key="tracking_validation_point_label")
-            x1, y1 = float(valid_previous[point_index, 0]), float(valid_previous[point_index, 1])
-            predicted_x2, predicted_y2 = float(valid_next[point_index, 0]), float(valid_next[point_index, 1])
-            st.write(
-                f"Frame 1 point: ({x1:.2f}, {y1:.2f})  |  Algorithmic predicted Frame 2 point: "
-                f"({predicted_x2:.2f}, {predicted_y2:.2f})"
-            )
-
-            crop_half = 60
-            crop_center_x, crop_center_y = int(round(predicted_x2)), int(round(predicted_y2))
-            frame2_height, frame2_width = frames[1].shape[:2]
-            x_lo = max(0, crop_center_x - crop_half)
-            x_hi = min(frame2_width, crop_center_x + crop_half)
-            y_lo = max(0, crop_center_y - crop_half)
-            y_hi = min(frame2_height, crop_center_y + crop_half)
-            crop = frames[1][y_lo:y_hi, x_lo:x_hi]
-            st.image(
-                _bgr_to_rgb(crop),
-                caption=(
-                    f"Frame 2 crop around the prediction (x in [{x_lo}, {x_hi}), "
-                    f"y in [{y_lo}, {y_hi})) - inspect this to determine the actual location"
-                ),
-                width="stretch",
-            )
-
-            confirmed = st.checkbox(
-                "I have visually inspected Frame 2 above and the coordinates below reflect "
-                "what I actually observed (not copied from the prediction)",
-                value=False,
-                key="tracking_validation_confirmed",
-            )
-            oc1, oc2 = st.columns(2)
-            observed_x = float(
-                oc1.number_input("Observed Frame 2 x", value=x1, step=1.0, key="tracking_validation_observed_x")
-            )
-            observed_y = float(
-                oc2.number_input("Observed Frame 2 y", value=y1, step=1.0, key="tracking_validation_observed_y")
-            )
-
-            if confirmed:
-                validation_record = record_observation(
-                    TrackingValidationRecord(
-                        video_id=video_id,
-                        point_label=point_label,
-                        frame1_index=start_frame,
-                        frame2_index=start_frame + 1,
-                        x1=x1,
-                        y1=y1,
-                        predicted_x2=predicted_x2,
-                        predicted_y2=predicted_y2,
-                    ),
-                    observed_x=observed_x,
-                    observed_y=observed_y,
-                    method="Streamlit Motion Tracking page - manual visual inspection",
-                )
-                metric_card("Pixel error e (predicted vs. observed)", f"{validation_record.pixel_error:.3f} px")
-                st.image(
-                    _bgr_to_rgb(draw_validation_overlay(frames[1], validation_record)),
-                    caption="Predicted (red) vs. observed (green) Frame 2 location",
-                    width="stretch",
-                )
-                download_action(
-                    "Download validation record (JSON)",
-                    json.dumps(validation_record.to_dict(), indent=2),
-                    file_name=f"{video_id}_{point_label}_validation_record.json",
-                    mime="application/json",
-                    key="tracking_validation_download",
-                )
-                st.caption(
-                    "Save this record under results/tracking/<video_id>/, or upload it on the "
-                    "Experiments & Results page, to include it in the consolidated validation "
-                    "table. This pixel error is real and computed from the coordinates you "
-                    "entered - it is only meaningful evidence if the observed coordinate truly "
-                    "came from inspecting Frame 2."
-                )
-            else:
-                pending_experiment_banner(
-                    "Manual pixel-location validation for this point is PENDING USER "
-                    "EXPERIMENT until you inspect Frame 2 above, enter the actual observed "
-                    "coordinate, and check the confirmation box."
-                )
-
-        section_header("Interpretation")
-        st.caption(
-            "These trajectories are computed live from whatever video was uploaded above; they "
-            "are exploratory tooling, not the assignment's required experimental evidence. The "
-            "two required assignment videos and their pixel-level tracking validation remain "
-            "PENDING USER EXPERIMENT until supplied."
-        )
+            stored = st.session_state.get(_TRACKING_RUN_KEY)
+            if stored is None or stored[0] != signature:
+                if stored is not None:  # never show a result against settings it was not run with
+                    del st.session_state[_TRACKING_RUN_KEY]
+                    st.info(
+                        "The video or tracking settings changed since the last run, so its "
+                        "results are no longer shown. Select Detect and track features to run "
+                        "the experiment again."
+                    )
+                else:
+                    st.info(
+                        "Set the frame window and the Shi-Tomasi and Lucas-Kanade settings, then "
+                        "select Detect and track features to run the experiment."
+                    )
+                return
+            tracking_run = stored[1]
+        _render_tracking_run(tracking_run)
     finally:
         input_path.unlink(missing_ok=True)
 
