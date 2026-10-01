@@ -43,9 +43,14 @@ def image_card(
     clamp: bool = False,
     output_format: str = "auto",
     width: int | str = "stretch",
+    bordered: bool = True,
 ) -> None:
-    """Bordered image with an optional bold title above and a note below the native caption."""
-    with st.container(border=True):
+    """Image with an optional bold title above and a note below the native caption.
+
+    ``bordered=False`` drops the card outline, for evidence images inside a page section
+    where a border around every image would box the page in.
+    """
+    with st.container(border=bordered):
         if title:
             st.markdown(f"**{markdown_text(title)}**")
         st.image(
@@ -60,7 +65,7 @@ def image_card(
             st.caption(note)
 
 
-def _render(item: ImageItem, width: int | str) -> None:
+def _render(item: ImageItem, width: int | str, bordered: bool) -> None:
     image_card(
         item.image,
         title=item.title,
@@ -70,10 +75,13 @@ def _render(item: ImageItem, width: int | str) -> None:
         clamp=item.clamp,
         output_format=item.output_format,
         width=width,
+        bordered=bordered,
     )
 
 
-def image_comparison(left: ImageItem, right: ImageItem, *, width: int | str = "stretch") -> None:
+def image_comparison(
+    left: ImageItem, right: ImageItem, *, width: int | str = "stretch", bordered: bool = True
+) -> None:
     """Two images side by side, for example spatial and Fourier results.
 
     Uses two equal ``st.columns``; Streamlit stacks columns on narrow screens, and a later
@@ -81,9 +89,9 @@ def image_comparison(left: ImageItem, right: ImageItem, *, width: int | str = "s
     """
     left_column, right_column = st.columns(2)
     with left_column:
-        _render(left, width)
+        _render(left, width, bordered)
     with right_column:
-        _render(right, width)
+        _render(right, width, bordered)
 
 
 def image_gallery(
@@ -91,6 +99,7 @@ def image_gallery(
     *,
     max_columns: int = DEFAULT_GALLERY_COLUMNS,
     width: int | str = "stretch",
+    bordered: bool = True,
 ) -> None:
     """Any number of images in balanced rows of at most ``max_columns`` (three by default)."""
     if not 1 <= max_columns <= MAX_GALLERY_COLUMNS:
@@ -99,4 +108,4 @@ def image_gallery(
     for row in rows:
         for column, item in zip(st.columns(columns), row):
             with column:
-                _render(item, width)
+                _render(item, width, bordered)

@@ -70,6 +70,21 @@ from module5_6.video import (
 )
 from module5_6.webapp._page import PageSpec
 from module5_6.webapp.ui import IMAGE_TYPES, VIDEO_TYPES, pending_experiment_banner
+from module5_6.webapp.design.components import (
+    ImageItem,
+    configuration_card,
+    data_table,
+    download_action,
+    image_card,
+    image_comparison,
+    metric_card,
+    metric_row,
+    page_header,
+    parameter_group,
+    result_section,
+    section_header,
+    upload_panel,
+)
 
 _MODULE = "Module 5-6"
 _REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -183,7 +198,7 @@ def _render_tracking_bundled_results() -> bool:
     the gitignored raw source video - so this renders identically on a fresh clone or the
     public deployment (root AGENTS.md "Bundled real-sample fallback").
     """
-    rendered_any = False
+    completed = []
     for video_id in ("video_1", "video_2"):
         result_dir = _TRACKING_RESULTS_DIR / video_id
         record_paths = sorted(result_dir.glob("*_record.json")) if result_dir.is_dir() else []
@@ -195,39 +210,56 @@ def _render_tracking_bundled_results() -> bool:
                 continue
             if record.pixel_error is None:
                 continue
-            rendered_any = True
-            st.subheader(f"{video_id}: point {record.point_label}")
+            completed.append((video_id, result_dir, record))
+    if not completed:
+        return False
+
+    with result_section(
+        "Committed Tracking Evidence",
+        description=(
+            "Committed validation records and evidence images from results/tracking/ "
+            "(not a live run)."
+        ),
+    ):
+        for video_id, result_dir, record in completed:
+            st.markdown(f"#### {video_id}: point {record.point_label}")
             frame1_path = result_dir / f"{record.point_label}_frame1.png"
             validated_path = result_dir / f"{record.point_label}_frame2_validated.png"
-            c1, c2 = st.columns(2)
-            with c1:
-                if frame1_path.is_file():
-                    st.image(
-                        str(frame1_path),
-                        caption=f"Frame {record.frame1_index}: P = ({record.x1:.1f}, {record.y1:.1f})",
-                        width="stretch",
-                    )
-            with c2:
-                if validated_path.is_file():
-                    st.image(
-                        str(validated_path),
-                        caption=f"Frame {record.frame2_index}: predicted (red) vs. observed (green)",
-                        width="stretch",
-                    )
-            s1, s2, s3 = st.columns(3)
-            s1.metric("Predicted Frame 2", f"({record.predicted_x2:.1f}, {record.predicted_y2:.1f})")
-            s2.metric("Observed Frame 2 (manual)", f"({record.observed_x:.1f}, {record.observed_y:.1f})")
-            s3.metric("Pixel error e (px)", f"{record.pixel_error:.3f}")
+            frame1 = ImageItem(
+                str(frame1_path),
+                caption=f"Frame {record.frame1_index}: P = ({record.x1:.1f}, {record.y1:.1f})",
+            )
+            frame2 = ImageItem(
+                str(validated_path),
+                caption=f"Frame {record.frame2_index}: predicted (red) vs. observed (green)",
+            )
+            if frame1_path.is_file() and validated_path.is_file():
+                image_comparison(frame1, frame2, bordered=False)
+            else:  # show whichever committed image exists, in its usual column
+                for column, path, item in zip(
+                    st.columns(2), (frame1_path, validated_path), (frame1, frame2)
+                ):
+                    if path.is_file():
+                        with column:
+                            image_card(item.image, caption=item.caption, bordered=False)
+            metric_row(
+                [
+                    ("Predicted Frame 2", f"({record.predicted_x2:.1f}, {record.predicted_y2:.1f})"),
+                    ("Observed Frame 2 (manual)", f"({record.observed_x:.1f}, {record.observed_y:.1f})"),
+                    ("Pixel error e (px)", f"{record.pixel_error:.3f}"),
+                ]
+            )
             st.caption(f"Observation method: {record.observation_method}")
-    if rendered_any:
-        st.caption(
-            "'Pixel error' above is the professor-required comparison between the algorithmic "
-            "Lucas-Kanade prediction and a manually observed Frame 2 location "
-            "(IMPLEMENTATION_PLAN.md Section 12) - see docs/TRACKING_VALIDATION.md for the "
-            "full procedure and docs/EXPERIMENTAL_RESULTS.md Section 5 for the written report. "
-            "Reproduce with scripts/validate_tracking.py."
-        )
-    return rendered_any
+
+    section_header("Interpretation")
+    st.caption(
+        "'Pixel error' above is the professor-required comparison between the algorithmic "
+        "Lucas-Kanade prediction and a manually observed Frame 2 location "
+        "(IMPLEMENTATION_PLAN.md Section 12) - see docs/TRACKING_VALIDATION.md for the "
+        "full procedure and docs/EXPERIMENTAL_RESULTS.md Section 5 for the written report. "
+        "Reproduce with scripts/validate_tracking.py."
+    )
+    return True
 
 
 def _optical_flow_page() -> None:
@@ -465,17 +497,21 @@ def _optical_flow_page() -> None:
         input_path.unlink(missing_ok=True)
 
 
+_MOTION_TRACKING_INTRO = (
+    "Question 1: Shi-Tomasi feature detection plus pyramidal Lucas-Kanade tracking between "
+    "consecutive frames, following the two-frame tracking problem from "
+    "IMPLEMENTATION_PLAN.md Section 10 (find P' = (x+u, y+v) in Frame 2 for each point "
+    "P = (x, y) in Frame 1). The formal brightness-constancy/Lucas-Kanade derivation is on "
+    "the Bilinear Interpolation & Theory page; the professor-required manual "
+    "pixel-location validation is below, once features are detected and tracked."
+)
+
+
 def _motion_tracking_page() -> None:
-    st.header("Motion Tracking")
-    st.info(
-        "Question 1: Shi-Tomasi feature detection plus pyramidal Lucas-Kanade tracking between "
-        "consecutive frames, following the two-frame tracking problem from "
-        "IMPLEMENTATION_PLAN.md Section 10 (find P' = (x+u, y+v) in Frame 2 for each point "
-        "P = (x, y) in Frame 1). The formal brightness-constancy/Lucas-Kanade derivation is on "
-        "the Bilinear Interpolation & Theory page; the professor-required manual "
-        "pixel-location validation is below, once features are detected and tracked."
-    )
-    upload = st.file_uploader("Video", type=VIDEO_TYPES, key="tracking_upload")
+    page_header("Motion Tracking", eyebrow=_MODULE, description=_MOTION_TRACKING_INTRO)
+
+    section_header("Input")
+    upload = upload_panel("Video", type=VIDEO_TYPES, key="tracking_upload")
     if upload is None:
         has_bundled = any(
             list((_TRACKING_RESULTS_DIR / v).glob("*_record.json"))
@@ -516,86 +552,89 @@ def _motion_tracking_page() -> None:
             f"{metadata.duration_seconds:.2f} s"
         )
 
-        st.subheader("Frame selection")
-        max_start = max(0.0, metadata.duration_seconds - (2.0 / metadata.fps))
-        start_seconds = float(
-            st.number_input(
-                "Start time (seconds)",
-                min_value=0.0,
-                max_value=max_start,
-                value=0.0,
-                step=1.0,
-                key="tracking_start_seconds",
-            )
-        )
-        frames_to_load = int(
-            st.slider(
-                "Frames to load (track-history length)",
-                min_value=2,
-                max_value=60,
-                value=15,
-                help=(
-                    "Frame 1 and Frame 2 of the two-frame tracking demo are always the first "
-                    "two consecutive frames of this loaded window; the full window is used for "
-                    "the track-history/trajectory visualization."
-                ),
-                key="tracking_frames_to_load",
-            )
-        )
-
-        with st.expander("Shi-Tomasi feature-detection settings", expanded=False):
-            max_corners = int(st.slider("Max corners", 10, 300, 100, key="tracking_max_corners"))
-            quality_level = float(
-                st.slider("Quality level", 0.01, 0.5, 0.3, step=0.01, key="tracking_quality_level")
-            )
-            min_distance = float(
-                st.slider("Min distance between corners (pixels)", 1.0, 30.0, 7.0, key="tracking_min_distance")
-            )
-            block_size = int(
-                st.select_slider("Block size", options=[3, 5, 7, 9, 11], value=7, key="tracking_block_size")
-            )
-            use_harris = st.checkbox("Use Harris corner detector", value=False, key="tracking_use_harris")
-
-        with st.expander("Lucas-Kanade tracking settings", expanded=False):
-            win_size = int(
-                st.select_slider("Window size", options=[15, 21, 31, 41], value=21, key="tracking_win_size")
-            )
-            max_level = int(st.slider("Pyramid levels", 0, 5, 3, key="tracking_max_level"))
-            max_iterations = int(
-                st.slider("Max iterations", 5, 100, 30, key="tracking_max_iterations")
-            )
-            epsilon = float(
-                st.slider("Convergence epsilon", 0.001, 0.1, 0.01, step=0.001, key="tracking_epsilon")
-            )
-            validate_fb = st.checkbox(
-                "Validate tracks with forward-backward error",
-                value=True,
-                help="Tracks points forward then backward; a large drift flags an unreliable track.",
-                key="tracking_validate_fb",
-            )
-            max_fb_error = float(
-                st.slider(
-                    "Max forward-backward error (pixels)",
-                    0.1,
-                    5.0,
-                    1.0,
-                    step=0.1,
-                    key="tracking_max_fb_error",
+        with configuration_card():
+            with parameter_group("Frames"):
+                max_start = max(0.0, metadata.duration_seconds - (2.0 / metadata.fps))
+                start_seconds = float(
+                    st.number_input(
+                        "Start time (seconds)",
+                        min_value=0.0,
+                        max_value=max_start,
+                        value=0.0,
+                        step=1.0,
+                        key="tracking_start_seconds",
+                    )
                 )
+                frames_to_load = int(
+                    st.slider(
+                        "Frames to load (track-history length)",
+                        min_value=2,
+                        max_value=60,
+                        value=15,
+                        help=(
+                            "Frame 1 and Frame 2 of the two-frame tracking demo are always the first "
+                            "two consecutive frames of this loaded window; the full window is used for "
+                            "the track-history/trajectory visualization."
+                        ),
+                        key="tracking_frames_to_load",
+                    )
+                )
+
+            with st.expander("Shi-Tomasi feature-detection settings", expanded=False):
+                max_corners = int(st.slider("Max corners", 10, 300, 100, key="tracking_max_corners"))
+                quality_level = float(
+                    st.slider("Quality level", 0.01, 0.5, 0.3, step=0.01, key="tracking_quality_level")
+                )
+                min_distance = float(
+                    st.slider("Min distance between corners (pixels)", 1.0, 30.0, 7.0, key="tracking_min_distance")
+                )
+                block_size = int(
+                    st.select_slider("Block size", options=[3, 5, 7, 9, 11], value=7, key="tracking_block_size")
+                )
+                use_harris = st.checkbox("Use Harris corner detector", value=False, key="tracking_use_harris")
+
+            with st.expander("Lucas-Kanade tracking settings", expanded=False):
+                win_size = int(
+                    st.select_slider("Window size", options=[15, 21, 31, 41], value=21, key="tracking_win_size")
+                )
+                max_level = int(st.slider("Pyramid levels", 0, 5, 3, key="tracking_max_level"))
+                max_iterations = int(
+                    st.slider("Max iterations", 5, 100, 30, key="tracking_max_iterations")
+                )
+                epsilon = float(
+                    st.slider("Convergence epsilon", 0.001, 0.1, 0.01, step=0.001, key="tracking_epsilon")
+                )
+                validate_fb = st.checkbox(
+                    "Validate tracks with forward-backward error",
+                    value=True,
+                    help="Tracks points forward then backward; a large drift flags an unreliable track.",
+                    key="tracking_validate_fb",
+                )
+                max_fb_error = float(
+                    st.slider(
+                        "Max forward-backward error (pixels)",
+                        0.1,
+                        5.0,
+                        1.0,
+                        step=0.1,
+                        key="tracking_max_fb_error",
+                    )
+                )
+
+            shi_tomasi_params = ShiTomasiParams(
+                max_corners=max_corners,
+                quality_level=quality_level,
+                min_distance=min_distance,
+                block_size=block_size,
+                use_harris_detector=use_harris,
+            )
+            lk_params = LucasKanadeParams(
+                win_size=(win_size, win_size), max_level=max_level, max_iterations=max_iterations, epsilon=epsilon
             )
 
-        shi_tomasi_params = ShiTomasiParams(
-            max_corners=max_corners,
-            quality_level=quality_level,
-            min_distance=min_distance,
-            block_size=block_size,
-            use_harris_detector=use_harris,
-        )
-        lk_params = LucasKanadeParams(
-            win_size=(win_size, win_size), max_level=max_level, max_iterations=max_iterations, epsilon=epsilon
-        )
+            run = st.button("Detect and track features", type="primary")
 
-        if not st.button("Detect and track features", type="primary"):
+        if not run:
             pending_experiment_banner(
                 "Set the frame window and detector/tracker settings, then run to view results."
             )
@@ -639,45 +678,65 @@ def _motion_tracking_page() -> None:
         valid_error = tracked.error[mask]
         valid_fb_error = fb_result.fb_error[mask] if fb_result is not None else None
 
-        st.subheader("Frame 1 and Frame 2")
-        c1, c2 = st.columns(2)
-        with c1:
-            st.image(
+        section_header("Tracking Evidence")
+        image_comparison(
+            ImageItem(
                 _bgr_to_rgb(draw_tracked_points(frames[0], features, color=(0, 255, 0))),
                 caption=f"Frame {start_frame}: detected Shi-Tomasi features ({features.shape[0]})",
-                width="stretch",
-            )
-        with c2:
-            st.image(
+            ),
+            ImageItem(
                 _bgr_to_rgb(draw_tracked_points(frames[1], valid_next, color=(0, 0, 255))),
                 caption=f"Frame {start_frame + 1}: tracked features ({valid_next.shape[0]} valid)",
-                width="stretch",
-            )
+            ),
+            bordered=False,
+        )
 
         if valid_previous.shape[0] == 0:
             st.warning(
                 "No tracks passed validation. Try relaxing the forward-backward threshold or "
                 "adjusting the Lucas-Kanade window size."
             )
-        else:
-            st.subheader("Displacement vectors (Frame 1 -> Frame 2)")
-            st.image(
-                _bgr_to_rgb(draw_displacement_vectors(frames[0], valid_previous, valid_next)),
-                caption="Displacement vector (u, v) for each valid tracked point",
-                width="stretch",
+
+        trajectories = track_trajectories(grays, shi_tomasi_params=shi_tomasi_params, lk_params=lk_params)
+        alive_full_length = sum(1 for t in trajectories if len(t.positions) == len(grays))
+        # Displacement vectors and track history side by side: full-width portrait frames
+        # would otherwise each fill several screens.
+        displacement_column, history_column = st.columns(2)
+        if valid_previous.shape[0] > 0:
+            with displacement_column:
+                image_card(
+                    _bgr_to_rgb(draw_displacement_vectors(frames[0], valid_previous, valid_next)),
+                    title="Displacement vectors (Frame 1 -> Frame 2)",
+                    caption="Displacement vector (u, v) for each valid tracked point",
+                    bordered=False,
+                )
+        with history_column:
+            image_card(
+                _bgr_to_rgb(draw_trajectories(frames[-1], trajectories)),
+                title="Track history across the loaded frames",
+                caption=(
+                    f"Trajectories over {len(frames)} frames (frames {start_frame} - "
+                    f"{start_frame + len(frames) - 1}); {alive_full_length} of {len(trajectories)} "
+                    "tracked points survived the full window"
+                ),
+                bordered=False,
             )
 
+        if valid_previous.shape[0] > 0:
             displacements = valid_next - valid_previous
             magnitudes = displacement_magnitude(displacements)
 
-            st.subheader("Selected statistics")
-            s1, s2, s3, s4 = st.columns(4)
-            s1.metric("Detected features", features.shape[0])
-            s2.metric("Valid tracks", valid_previous.shape[0])
-            s3.metric("Mean |displacement| (px)", f"{float(magnitudes.mean()):.3f}")
-            s4.metric("Max |displacement| (px)", f"{float(magnitudes.max()):.3f}")
+            section_header("Selected Statistics")
+            metric_row(
+                [
+                    ("Detected features", features.shape[0]),
+                    ("Valid tracks", valid_previous.shape[0]),
+                    ("Mean |displacement| (px)", f"{float(magnitudes.mean()):.3f}"),
+                    ("Max |displacement| (px)", f"{float(magnitudes.max()):.3f}"),
+                ]
+            )
 
-            st.subheader("Point coordinates and tracking-quality metrics")
+            section_header("Tracking Data", description="Point coordinates and tracking-quality metrics")
             st.caption(
                 "'LK consistency error' and 'Forward-backward consistency (px)' below are "
                 "algorithmic self-consistency signals reported by this run's Lucas-Kanade "
@@ -706,7 +765,7 @@ def _motion_tracking_page() -> None:
                 if valid_fb_error is not None:
                     row["Forward-backward consistency (px)"] = round(float(valid_fb_error[index]), 3)
                 rows.append(row)
-            st.dataframe(rows, width="stretch")
+            data_table(rows)
             if valid_previous.shape[0] > max_rows:
                 st.caption(f"Showing the first {max_rows} of {valid_previous.shape[0]} valid tracks.")
             st.caption(
@@ -715,7 +774,10 @@ def _motion_tracking_page() -> None:
                 "for these points."
             )
 
-            st.subheader("Two-frame pixel-location validation (manual, professor-required)")
+            section_header(
+                "Manual Validation",
+                description="Two-frame pixel-location validation (manual, professor-required)",
+            )
             st.caption(
                 "IMPLEMENTATION_PLAN.md Section 12: pick a point above, see its algorithmic "
                 "Lucas-Kanade prediction, then **you** visually determine and enter where that "
@@ -792,15 +854,15 @@ def _motion_tracking_page() -> None:
                     observed_y=observed_y,
                     method="Streamlit Motion Tracking page - manual visual inspection",
                 )
-                st.metric("Pixel error e (predicted vs. observed)", f"{validation_record.pixel_error:.3f} px")
+                metric_card("Pixel error e (predicted vs. observed)", f"{validation_record.pixel_error:.3f} px")
                 st.image(
                     _bgr_to_rgb(draw_validation_overlay(frames[1], validation_record)),
                     caption="Predicted (red) vs. observed (green) Frame 2 location",
                     width="stretch",
                 )
-                st.download_button(
+                download_action(
                     "Download validation record (JSON)",
-                    data=json.dumps(validation_record.to_dict(), indent=2),
+                    json.dumps(validation_record.to_dict(), indent=2),
                     file_name=f"{video_id}_{point_label}_validation_record.json",
                     mime="application/json",
                     key="tracking_validation_download",
@@ -819,18 +881,7 @@ def _motion_tracking_page() -> None:
                     "coordinate, and check the confirmation box."
                 )
 
-        st.subheader("Track history across the loaded frames")
-        trajectories = track_trajectories(grays, shi_tomasi_params=shi_tomasi_params, lk_params=lk_params)
-        alive_full_length = sum(1 for t in trajectories if len(t.positions) == len(grays))
-        st.image(
-            _bgr_to_rgb(draw_trajectories(frames[-1], trajectories)),
-            caption=(
-                f"Trajectories over {len(frames)} frames (frames {start_frame} - "
-                f"{start_frame + len(frames) - 1}); {alive_full_length} of {len(trajectories)} "
-                "tracked points survived the full window"
-            ),
-            width="stretch",
-        )
+        section_header("Interpretation")
         st.caption(
             "These trajectories are computed live from whatever video was uploaded above; they "
             "are exploratory tooling, not the assignment's required experimental evidence. The "
