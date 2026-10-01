@@ -1,11 +1,3 @@
-# Internal project instruction and planning files (not published to the public repository)
-/AGENTS.md
-/CLAUDE.md
-/GIT_WORKFLOW.md
-/IMPLEMENTATION_PLAN.md
-/MODULE_5_6_ASSIGNMENT_INSTRUCTIONS.md
-/MODULE_5_6_ASSIGNMENT_QUESTIONS.md
-
 # Python and packaging
 .venv/
 venv/
