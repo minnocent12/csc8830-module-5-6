@@ -126,7 +126,8 @@ def test_run_gate_is_explicit_and_the_button_is_primary(synthetic_clip) -> None:
     assert button.label == "Detect and track features"
     assert button.proto.type == "primary"
     assert not app.metric and not app.dataframe  # nothing runs before the click
-    assert any("then run to view results" in w.value for w in app.warning)
+    assert any("select Detect and track features to run the experiment" in i.value for i in app.info)
+    assert not any("PENDING" in w.value or "foundation phase" in w.value for w in app.warning)
 
 
 @needs_upload_api
@@ -149,8 +150,7 @@ def test_run_produces_native_metrics_table_and_validation_widgets(synthetic_clip
 def test_confirmed_validation_shows_pixel_error_and_native_download(synthetic_clip) -> None:
     app = _uploaded(synthetic_clip)
     app.button[0].click().run()
-    app.checkbox(key="tracking_validation_confirmed").check()
-    app.button[0].click().run()  # same run as the confirmation, see the run gate note
+    app.checkbox(key="tracking_validation_confirmed").check().run()  # a normal later rerun
     assert not app.exception
     assert "Pixel error e (predicted vs. observed)" in [m.label for m in app.metric]
     downloads = app.get("download_button")
@@ -175,3 +175,102 @@ def test_downloaded_record_shape_is_unchanged() -> None:
         "observation_method", "notes", "predicted_displacement_u",
         "predicted_displacement_v", "pixel_error",
     ]
+
+
+# Completed runs survive the reruns caused by manual validation
+
+
+@needs_upload_api
+def test_real_user_flow_completes_manual_validation_across_reruns(synthetic_clip) -> None:
+    """Regression: ticking the confirmation used to rerun with the button released and hide everything."""
+    app = _uploaded(synthetic_clip)
+    app.button[0].click().run()
+    assert "tracking_completed_run" in app.session_state
+    app.number_input(key="tracking_validation_point_index").set_value(1).run()  # button now False
+    assert [m.label for m in app.metric] == LIVE_METRICS  # the stored result is still shown
+    assert len(app.dataframe) == 1
+    app.checkbox(key="tracking_validation_confirmed").check().run()
+    app.number_input(key="tracking_validation_observed_x").set_value(12.0).run()
+    assert not app.exception
+    assert app.metric[-1].label == "Pixel error e (predicted vs. observed)"
+    assert app.metric[-1].value.endswith(" px")
+    assert [d.proto.label for d in app.get("download_button")] == ["Download validation record (JSON)"]
+    assert not any("pending until you inspect" in w.value for w in app.warning)
+
+
+@needs_upload_api
+@pytest.mark.parametrize(
+    "kind, key, value",
+    [
+        ("slider", "tracking_frames_to_load", 10),  # frame settings
+        ("slider", "tracking_max_corners", 50),  # Shi-Tomasi
+        ("select_slider", "tracking_win_size", 31),  # Lucas-Kanade
+        ("checkbox", "tracking_validate_fb", False),  # forward-backward validation
+    ],
+)
+def test_changing_a_computation_setting_invalidates_the_stored_result(synthetic_clip, kind, key, value) -> None:
+    app = _uploaded(synthetic_clip)
+    app.button[0].click().run()
+    assert app.metric
+    getattr(app, kind)(key=key).set_value(value).run()
+    assert not app.exception
+    assert not app.metric and not app.dataframe and not app.get("download_button")
+    assert any("settings changed since the last run" in i.value for i in app.info)
+    assert "tracking_completed_run" not in app.session_state
+    app.button[0].click().run()  # a new explicit run is required, and works
+    assert [m.label for m in app.metric] == LIVE_METRICS
+
+
+@needs_upload_api
+def test_a_new_upload_never_reuses_the_previous_result(synthetic_clip) -> None:
+    app = _uploaded(synthetic_clip)
+    app.button[0].click().run()
+    name, data, mime = synthetic_clip
+    app.file_uploader(key="tracking_upload").set_value((name, data, mime)).run()  # same name again
+    assert not app.metric
+    assert any("settings changed since the last run" in i.value for i in app.info)
+
+
+@needs_upload_api
+def test_validation_reruns_never_recompute_tracking(synthetic_clip) -> None:
+    script = (
+        "import sys\n"
+        f"sys.path.insert(0, {str(Path(APP_PATH).parent / 'src')!r})\n"
+        "import streamlit as st\n"
+        "from module5_6.webapp import pages\n"
+        "if not hasattr(pages, '_real_detect_features'):  # the module persists across reruns\n"
+        "    pages._real_detect_features = pages.detect_features\n"
+        "    def counting(*args, **kwargs):\n"
+        "        st.session_state['detect_calls'] = st.session_state.get('detect_calls', 0) + 1\n"
+        "        return pages._real_detect_features(*args, **kwargs)\n"
+        "    pages.detect_features = counting\n"
+        "pages._motion_tracking_page()\n"
+    )
+    from module5_6.webapp import pages
+
+    try:
+        app = AppTest.from_string(script, default_timeout=60).run()
+        app.file_uploader(key="tracking_upload").set_value(synthetic_clip).run()
+        app.button[0].click().run()
+        assert app.session_state["detect_calls"] == 1
+        app.checkbox(key="tracking_validation_confirmed").check().run()
+        app.number_input(key="tracking_validation_observed_y").set_value(9.0).run()
+        app.text_input(key="tracking_validation_point_label").set_value("P2").run()
+        assert app.session_state["detect_calls"] == 1  # only the click computes
+        assert app.get("download_button")
+    finally:  # AppTest shares this interpreter's modules: undo the counting patch
+        if hasattr(pages, "_real_detect_features"):
+            pages.detect_features = pages._real_detect_features
+            del pages._real_detect_features
+
+
+def test_run_signature_ignores_manual_validation_inputs() -> None:
+    import inspect
+
+    from module5_6.webapp.pages import _tracking_signature
+
+    params = set(inspect.signature(_tracking_signature).parameters)
+    assert params == {
+        "upload", "start_seconds", "frames_to_load", "shi_tomasi_params", "lk_params",
+        "validate_fb", "max_fb_error",
+    }
