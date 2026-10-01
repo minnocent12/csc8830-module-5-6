@@ -4,9 +4,11 @@ This is the single definition of the ``[theme]`` and ``[theme.sidebar]`` section
 ``.streamlit/config.toml`` in the course workspace carries. It does not import Streamlit:
 it only produces plain values and TOML text, so it runs anywhere.
 
-Every emitted key exists in Streamlit 1.47, the compatibility floor. Alert colors
-(``redColor``, ``blueBackgroundColor`` and similar) and ``metricValueFontSize`` arrived after
-1.47, so they are not emitted; ``styles.py`` covers the metric gap with CSS.
+Every emitted key exists in Streamlit 1.49, the runtime floor. The floor is 1.49 rather than
+the 1.47 that the theme alone needs, because the assignment pages call ``st.image`` and
+``st.dataframe`` with ``width="stretch"``, which 1.49 introduced. Alert colors (``redColor``,
+``blueBackgroundColor`` and similar) and ``metricValueFontSize`` are not available at 1.49,
+so they are not emitted; ``styles.py`` covers the metric gap with CSS.
 
 Color role choices:
 * ``primaryColor`` is the accessible CTA orange, because Streamlit draws primary buttons as
@@ -28,8 +30,11 @@ from .tokens import (
 )
 from .version import KIT_VERSION
 
-STREAMLIT_MIN_VERSION = "1.47"
-STREAMLIT_REQUIREMENT = "streamlit>=1.47,<2"
+STREAMLIT_MIN_VERSION = "1.49"
+STREAMLIT_REQUIREMENT = "streamlit>=1.49,<2"
+# Test-only floor: ``AppTest.file_uploader`` first shipped in 1.56. Used by a module's dev
+# extra when its tests drive file uploads (Module 4); never a runtime requirement.
+STREAMLIT_UPLOAD_TEST_REQUIREMENT = "streamlit>=1.56,<2"
 
 ThemeValue = str | int | bool | list[str] | list[int]
 

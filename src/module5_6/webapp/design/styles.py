@@ -7,7 +7,7 @@ and any future classes use the ``csc8830-`` namespace.
 Streamlit internals are reached only through ``data-testid`` attributes, never through the
 generated ``st-emotion-cache-*`` class names, which change between releases. ``data-testid``
 values are Streamlit test hooks, not a public API; each one used here was confirmed present
-in both Streamlit 1.47 and 1.64.
+in Streamlit 1.47, 1.49, and 1.64.
 
 | Rule | Selector | Reason | Fragility |
 |---|---|---|---|

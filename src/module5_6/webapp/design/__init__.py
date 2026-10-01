@@ -8,7 +8,12 @@ from __future__ import annotations
 
 from .accessibility import ContrastUse, contrast_ratio, relative_luminance
 from .styles import CSS_PREFIX, build_css, css_variables, inject_global_styles
-from .theme import STREAMLIT_REQUIREMENT, render_config_toml, streamlit_theme
+from .theme import (
+    STREAMLIT_REQUIREMENT,
+    STREAMLIT_UPLOAD_TEST_REQUIREMENT,
+    render_config_toml,
+    streamlit_theme,
+)
 from .tokens import (
     BORDERS,
     BREAKPOINTS,
@@ -41,6 +46,7 @@ __all__ = [
     "RADII",
     "SPACING",
     "STREAMLIT_REQUIREMENT",
+    "STREAMLIT_UPLOAD_TEST_REQUIREMENT",
     "TYPOGRAPHY",
     "ContrastUse",
     "build_css",
