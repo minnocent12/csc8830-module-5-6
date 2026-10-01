@@ -183,6 +183,10 @@ def _component_css() -> str:
   color: var(--{p}-color-text-body);
   font-weight: 600;
 }}
+.{p}-breadcrumbs a {{
+  color: var(--{p}-color-brand-orange-strong);
+  text-decoration: underline;
+}}
 .{p}-breadcrumbs-sep {{
   margin: 0 var(--{p}-space-x2);
 }}

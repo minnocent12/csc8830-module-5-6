@@ -18,7 +18,7 @@ from ._grid import balanced_row_sizes
 from .cards import card, configuration_card, parameter_group
 from .data import data_table, download_action
 from .images import ImageItem, image_card, image_comparison, image_gallery
-from .layout import breadcrumbs, footer, page_header, section_header
+from .layout import breadcrumbs, eyebrow, footer, page_header, section_header
 from .metrics import MAX_METRIC_COLUMNS, MetricSpec, metric_card, metric_row
 from .results import RESULT_SECTION_ORDER, experiment_summary, result_section
 from .status import (
@@ -48,6 +48,7 @@ __all__ = [
     "empty_state",
     "equation_block",
     "experiment_summary",
+    "eyebrow",
     "footer",
     "image_card",
     "image_comparison",
