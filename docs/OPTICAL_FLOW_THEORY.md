@@ -4,10 +4,10 @@ This document derives the optical-flow constraint equation from the brightness-c
 assumption, then explains the aperture problem that motivates the Lucas-Kanade local
 constant-motion assumption used in `docs/MOTION_TRACKING_DERIVATION.md`.
 
-This is theoretical/report material. No numeric result in this document comes from a real
-video; the two assignment videos and their required experimental validation remain
-**PENDING USER EXPERIMENT** (see `docs/TRACKING_VALIDATION.md`, not yet created, for that
-later phase).
+This is theoretical/report material; no numeric result in this document itself comes from a
+real video. The two assignment videos and their required experimental validation are now
+**complete** - see `docs/TRACKING_VALIDATION.md` and `docs/EXPERIMENTAL_RESULTS.md` for the
+real results, which were produced by the pipeline this document's derivation describes.
 
 ## 1. Notation and coordinate convention
 
