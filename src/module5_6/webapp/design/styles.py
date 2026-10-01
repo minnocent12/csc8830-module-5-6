@@ -17,6 +17,7 @@ in Streamlit 1.47, 1.49, and 1.64.
 | 4 | ``[data-testid="stCaptionContainer"]`` | Streamlit fades captions with ``opacity: 0.6``, which drops them below AA; restore full opacity and use the muted text color (6.21:1) | low |
 | 5 | ``[data-testid="stMetricLabel"]`` and its ``div``/``p`` descendants, ``[data-testid="stMetricValue"]`` | metric label and value typography; native theme keys for this arrived after 1.47. The inner paragraph sets its own size, and the inner elements truncate with an ellipsis (a different element in 1.47 and 1.64), which hides long labels such as "Mean reproj. error, inliers (px)" on laptop widths, so labels wrap instead. Labels are never case-transformed because they carry units | medium: depends on the label's inner markup, which already differs between 1.47 and 1.64 |
 | 6 | ``.stApp :is(a, button, summary, [role="tab"]):focus-visible`` | one visible keyboard focus ring in the accessible orange | none: standard pseudo-class |
+| 7 | ``.csc8830-eyebrow``, ``.csc8830-breadcrumbs``, ``.csc8830-chip*`` | the few elements ``components`` renders with ``st.html``; chip colors come from AA-checked token pairs | none: the kit's own classes |
 
 Nothing here hides a control, changes layout order, or replaces a native element, so
 AppTest and assistive technology see the same element tree as before.
@@ -110,6 +111,70 @@ def build_css() -> str:
   outline: {BORDERS.focus_ring_width}px solid var(--{p}-color-action-primary-bg);
   outline-offset: {BORDERS.focus_ring_offset}px;
 }}
+{_component_css()}"""
+
+
+# Chip kind -> (text color role, background role). Every pair is in tokens.CONTRAST_PAIRS
+# as normal text, so chip labels meet WCAG AA.
+CHIP_COLORS: dict[str, tuple[str, str]] = {
+    "neutral": ("text_body", "surface_secondary"),
+    "info": ("info", "info_soft"),
+    "success": ("success", "success_soft"),
+    "warning": ("warning", "warning_soft"),
+    "error": ("error", "error_soft"),
+    "brand": ("brand_orange_strong", "brand_orange_soft"),
+}
+
+
+def _component_css() -> str:
+    """Rule 7: classes emitted by ``components``. Only ``csc8830-`` classes, no internals."""
+    p = CSS_PREFIX
+    eyebrow = TYPOGRAPHY.module_eyebrow
+    caption = TYPOGRAPHY.caption
+    chip_rules = "\n".join(
+        f".{p}-chip--{kind} {{ color: var(--{p}-color-{_kebab(fg)}); "
+        f"background: var(--{p}-color-{_kebab(bg)}); }}"
+        for kind, (fg, bg) in CHIP_COLORS.items()
+    )
+    return f""".{p}-eyebrow {{
+  margin: 0;
+  color: var(--{p}-color-brand-orange-strong);
+  font-size: {eyebrow.size_px}px;
+  font-weight: {eyebrow.weight};
+  letter-spacing: {eyebrow.letter_spacing_em}em;
+  text-transform: uppercase;
+}}
+.{p}-breadcrumbs ol {{
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--{p}-color-text-muted);
+  font-size: {caption.size_px}px;
+}}
+.{p}-breadcrumbs li[aria-current="page"] {{
+  color: var(--{p}-color-text-body);
+  font-weight: 600;
+}}
+.{p}-breadcrumbs-sep {{
+  margin: 0 var(--{p}-space-x2);
+}}
+.{p}-chip-row {{
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--{p}-space-x2);
+}}
+.{p}-chip {{
+  display: inline-block;
+  padding: 2px var(--{p}-space-x2);
+  border: 1px solid currentColor;
+  border-radius: var(--{p}-radius-pill);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}}
+{chip_rules}
 """
 
 

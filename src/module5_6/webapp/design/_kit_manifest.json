@@ -1,0 +1,24 @@
+{
+  "files": {
+    "__init__.py": "2496e5c143783c3800373bcc51313f351ad6e056748a289754e6e14531b00fb3",
+    "accessibility.py": "83149f6c7930699c0ad549bdd0f773735f04de5625ba42692064cff928b635d6",
+    "components/__init__.py": "dc1bd8cf13c3f97ae10664afa85a301570b9d29be6fc3a1c59b904cd58987f5f",
+    "components/_grid.py": "9056d3a024c650673b1d264497207dd7af38d037b3c7fe4a1f8dafcee9956255",
+    "components/_text.py": "6dabbce8970caa67f42dcdedcee080db4dfbf879f89042044d2f2d14fa22ce19",
+    "components/cards.py": "1689f8328c3b334e092a884228ec6aea35b1362fc2555b71b80c6ccf062658dc",
+    "components/data.py": "bcd8cc34cc8ae062d0a0b445b7c45582980df6804146f735143e3089f73a37db",
+    "components/images.py": "f66fdf552b566ab621e02c957522c7bf6d8e092e8eb57deeead93431b84bcbb1",
+    "components/layout.py": "ac2ea2c98be12ae6292c6345183e6f0b4c8af46207d3e9fcad2c60538698b9b3",
+    "components/metrics.py": "feb35ee4777dc5f58c9f1a67ab6779f4005d1685cf9b95dfd055d65e99cd51a9",
+    "components/results.py": "1722fb94c7e2cc58a36f670c0fd0b84407ba41f2c994829f1b6296295a2f64bd",
+    "components/status.py": "1091f0c07f6515eac2574022b1960b79eaf2fc7dbcead60d226b5c9b0c777e0a",
+    "components/theory.py": "b31cd420dfb6836f7c786068c7c0d6c12a106bd179a2fb44aa6644bbc56167e9",
+    "components/uploads.py": "5ccaa2112a5ec68de3b46f08ae2aac7b3d5a77e7e9abe1e9a7e49186878a25bf",
+    "styles.py": "5f4879349da0b39a639e223fcd10d5658a4558febb9e4d123b76fa27dd74ba6b",
+    "theme.py": "184f1ff1927bd8df65995d2edaa2fafe5dbef0449095b5b1023a8810c37252e8",
+    "tokens.py": "edd3cc68e32ecada8652106dcf657c5e3269e75b02373373f0cb78f15786ef28",
+    "version.py": "032080d030a9f8025d5915cc79923dde70c2a65f174cdd929c45852d24313dba"
+  },
+  "kit": "csc8830-ui",
+  "kit_version": "0.3.0"
+}
