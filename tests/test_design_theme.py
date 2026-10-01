@@ -25,3 +25,10 @@ def test_vendored_design_kit_has_a_version() -> None:
 def test_streamlit_dependency_floor_matches_design_kit() -> None:
     pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert f'"{STREAMLIT_REQUIREMENT}"' in pyproject
+
+
+def test_vendored_components_import() -> None:
+    from module5_6.webapp.design import components
+
+    for name in ("page_header", "metric_row", "status_banner", "image_comparison", "upload_panel"):
+        assert callable(getattr(components, name))

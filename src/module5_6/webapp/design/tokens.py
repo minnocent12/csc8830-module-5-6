@@ -270,6 +270,7 @@ CONTRAST_PAIRS: tuple[ContrastPair, ...] = (
     ContrastPair("text_heading", "brand_orange_soft", ContrastUse.NORMAL_TEXT, "selected item label"),
     ContrastPair("brand_orange_strong", "brand_orange_soft", ContrastUse.NORMAL_TEXT, "orange text on soft"),
     ContrastPair("brand_orange_strong", "surface_primary", ContrastUse.NORMAL_TEXT, "orange link text"),
+    ContrastPair("brand_orange_strong", "app_background", ContrastUse.NORMAL_TEXT, "eyebrow, links"),
     # Body text on every neutral surface
     ContrastPair("text_heading", "app_background", ContrastUse.NORMAL_TEXT),
     ContrastPair("text_body", "app_background", ContrastUse.NORMAL_TEXT),
