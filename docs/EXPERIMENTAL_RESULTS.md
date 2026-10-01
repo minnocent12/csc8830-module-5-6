@@ -190,8 +190,10 @@ supported observation than any single aggregate accuracy claim would be.
   `docs/TRACKING_VALIDATION.md` Section 5.
 - The median-magnitude statistic in Section 2 is an approximation at this data scale (see the
   note there); it is not used for any pass/fail judgment, only as descriptive context.
-- No structure-from-motion, camera-parameter, or four-view result appears in this document;
-  those remain a later phase.
+- The real four-view structure-from-motion experiment, including camera-parameter information,
+  is reported in Section 9 of this document, not here in Sections 1-6 (which cover Question 1
+  only); see Section 9 for its own specific limitations (notably View 3's smaller RANSAC
+  inlier count and the camera quantities that remain genuinely unknown).
 
 ## 8. Reproducibility notes
 

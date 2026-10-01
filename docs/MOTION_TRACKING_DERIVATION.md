@@ -6,9 +6,11 @@ least-squares solution, state the two-frame tracking problem the assignment asks
 explain how that pedagogical derivation relates to the pyramidal `cv2.calcOpticalFlowPyrLK`
 implementation used in Phase 2 (`src/module5_6/tracking.py`).
 
-This is theoretical/report material. No tracked pixel coordinate or tracking error in this
-document is from a real video; the two assignment videos and their required
-two-consecutive-frame pixel-location validation remain **PENDING USER EXPERIMENT**.
+This is theoretical/report material; no tracked pixel coordinate or tracking error in this
+document itself is from a real video. The two assignment videos and their required
+two-consecutive-frame pixel-location validation are now **complete** - see
+`docs/TRACKING_VALIDATION.md` for the real predicted-vs-observed results (4.628 px and
+8.408 px) this derivation's two-frame tracking problem produced.
 
 ## 1. The two-frame tracking problem
 
