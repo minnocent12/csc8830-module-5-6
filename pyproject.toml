@@ -17,7 +17,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+# The Motion Tracking web tests drive uploads through AppTest.file_uploader (Streamlit 1.56+).
+dev = ["pytest>=8.0", "streamlit>=1.56,<2"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
