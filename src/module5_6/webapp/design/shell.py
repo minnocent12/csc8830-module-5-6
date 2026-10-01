@@ -41,12 +41,11 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import urlencode
 
 import streamlit as st
 
 from .components._text import html_text, markdown_text
-from .components.layout import Crumb, breadcrumbs, footer
+from .components.layout import breadcrumbs, footer
 from .navigation import NavModule, NavPage, build_navigation, module_by_label, resolve
 from .styles import CSS_PREFIX, inject_global_styles
 
@@ -143,12 +142,6 @@ def _write_url(module: NavModule | None, page: NavPage | None) -> None:
             del st.query_params[QUERY_PAGE]
     elif st.query_params.get(QUERY_PAGE) != page.slug:
         st.query_params[QUERY_PAGE] = page.slug
-
-
-def _home_href() -> str:
-    """Link to Home that keeps unrelated query parameters."""
-    params = {k: v for k, v in st.query_params.items() if k not in (QUERY_MODULE, QUERY_PAGE)}
-    return "?" + urlencode({QUERY_MODULE: HOME_SLUG, **params})
 
 
 def _drop_stale_state(key: str, valid: Sequence[str]) -> None:
@@ -261,7 +254,9 @@ def render_shell(
         breadcrumbs([app_title, home.label])
         home.render(HomeContext(modules))
     else:
-        root: Crumb = (app_title, _home_href()) if home is not None and sync else app_title
-        breadcrumbs([root, module.label, page.label])
+        # Plain text by design: on Streamlit Community Cloud the app runs in an iframe, and a
+        # breadcrumb link reloads only the iframe, leaving the browser address bar on the old
+        # page. The sidebar's Home option is the reliable way back to Home.
+        breadcrumbs([app_title, module.label, page.label])
         page.page.render()
     footer(footer_parts)

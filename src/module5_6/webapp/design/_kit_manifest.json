@@ -15,12 +15,12 @@
     "components/theory.py": "b31cd420dfb6836f7c786068c7c0d6c12a106bd179a2fb44aa6644bbc56167e9",
     "components/uploads.py": "5ccaa2112a5ec68de3b46f08ae2aac7b3d5a77e7e9abe1e9a7e49186878a25bf",
     "navigation.py": "d88f8275b6899745defd75a7150bcaa2532a7bdbbeaaf0954198d1269a4d8a0a",
-    "shell.py": "f128267031c2fff8336625b03959b087859e773bd84c6e31a7a6eddde683c876",
+    "shell.py": "3994a210d57cb4694fdbfa81b6e9f7b105245da07fe32e1f8e14e92cb92ddc35",
     "styles.py": "210b1873537e4650992bc9eae2383f6fac91c3f8c670da85372e7c0ad0d0442d",
     "theme.py": "184f1ff1927bd8df65995d2edaa2fafe5dbef0449095b5b1023a8810c37252e8",
     "tokens.py": "edd3cc68e32ecada8652106dcf657c5e3269e75b02373373f0cb78f15786ef28",
-    "version.py": "2060dc2cec70ad3e53fd81672f8119be1862155970b90ff923c0231f099a0fa0"
+    "version.py": "723ddd89a591fb8ac406973e62d2dd827885634cf156ee0640a49e42095ca655"
   },
   "kit": "csc8830-ui",
-  "kit_version": "0.5.0"
+  "kit_version": "0.5.1"
 }
