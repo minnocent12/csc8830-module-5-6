@@ -254,15 +254,15 @@ $\dagger$ Approximate for the reason given in Section 5 (median of per-frame-pai
 the exact global pixel-level median); mean and max are exact.
 
 <div class="figure-row">
-<figure><img src="../../results/optical_flow/video_1/video_1_evidence_original_frame275.png"><figcaption>Fig. 1a. Video 1, frame 275: original frame.</figcaption></figure>
-<figure><img src="../../results/optical_flow/video_1/video_1_evidence_hsv_flow_275_276.png"><figcaption>Fig. 1b. Video 1, frames 275&rarr;276: HSV flow (hue = direction, value = magnitude).</figcaption></figure>
-<figure><img src="../../results/optical_flow/video_1/video_1_evidence_arrows_275_276.png"><figcaption>Fig. 1c. Video 1, frames 275&rarr;276: arrow overlay.</figcaption></figure>
+<figure><img src="../../results/optical_flow/video_1/video_1_evidence_original_frame275.png" width="180"><figcaption>Fig. 1a. Video 1, frame 275: original frame.</figcaption></figure>
+<figure><img src="../../results/optical_flow/video_1/video_1_evidence_hsv_flow_275_276.png" width="180"><figcaption>Fig. 1b. Video 1, frames 275&rarr;276: HSV flow (hue = direction, value = magnitude).</figcaption></figure>
+<figure><img src="../../results/optical_flow/video_1/video_1_evidence_arrows_275_276.png" width="180"><figcaption>Fig. 1c. Video 1, frames 275&rarr;276: arrow overlay.</figcaption></figure>
 </div>
 
 <div class="figure-row">
-<figure><img src="../../results/optical_flow/video_2/video_2_evidence_original_frame1200.png"><figcaption>Fig. 2a. Video 2, frame 1200: original frame.</figcaption></figure>
-<figure><img src="../../results/optical_flow/video_2/video_2_evidence_hsv_flow_1200_1201.png"><figcaption>Fig. 2b. Video 2, frames 1200&rarr;1201: HSV flow.</figcaption></figure>
-<figure><img src="../../results/optical_flow/video_2/video_2_evidence_arrows_1200_1201.png"><figcaption>Fig. 2c. Video 2, frames 1200&rarr;1201: arrow overlay.</figcaption></figure>
+<figure><img src="../../results/optical_flow/video_2/video_2_evidence_original_frame1200.png" width="180"><figcaption>Fig. 2a. Video 2, frame 1200: original frame.</figcaption></figure>
+<figure><img src="../../results/optical_flow/video_2/video_2_evidence_hsv_flow_1200_1201.png" width="180"><figcaption>Fig. 2b. Video 2, frames 1200&rarr;1201: HSV flow.</figcaption></figure>
+<figure><img src="../../results/optical_flow/video_2/video_2_evidence_arrows_1200_1201.png" width="180"><figcaption>Fig. 2c. Video 2, frames 1200&rarr;1201: arrow overlay.</figcaption></figure>
 </div>
 
 ### 6.1 What can be inferred (claims tied to the evidence above)
@@ -366,13 +366,13 @@ evaluated but rejected for the same reason (ambiguous or motion-blurred at nativ
 per the assignment's "at minimum" allowance, one defensible real point per video is reported.
 
 <div class="figure-row">
-<figure><img src="../../results/tracking/video_1/P1_report_frame1_zoom.png"><figcaption>Fig. 3a. Video 1, Frame 275 (zoomed): the selected point P1.</figcaption></figure>
-<figure><img src="../../results/tracking/video_1/P1_report_frame2_zoom.png"><figcaption>Fig. 3b. Video 1, Frame 276 (zoomed): predicted (red) vs. observed (green).</figcaption></figure>
+<figure><img src="../../results/tracking/video_1/P1_report_frame1_zoom.png" width="320"><figcaption>Fig. 3a. Video 1, Frame 275 (zoomed): the selected point P1.</figcaption></figure>
+<figure><img src="../../results/tracking/video_1/P1_report_frame2_zoom.png" width="320"><figcaption>Fig. 3b. Video 1, Frame 276 (zoomed): predicted (red) vs. observed (green).</figcaption></figure>
 </div>
 
 <div class="figure-row">
-<figure><img src="../../results/tracking/video_2/P1_report_frame1_zoom.png"><figcaption>Fig. 4a. Video 2, Frame 1200 (zoomed): the selected point P1.</figcaption></figure>
-<figure><img src="../../results/tracking/video_2/P1_report_frame2_zoom.png"><figcaption>Fig. 4b. Video 2, Frame 1201 (zoomed): predicted (red) vs. observed (green).</figcaption></figure>
+<figure><img src="../../results/tracking/video_2/P1_report_frame1_zoom.png" width="320"><figcaption>Fig. 4a. Video 2, Frame 1200 (zoomed): the selected point P1.</figcaption></figure>
+<figure><img src="../../results/tracking/video_2/P1_report_frame2_zoom.png" width="320"><figcaption>Fig. 4b. Video 2, Frame 1201 (zoomed): predicted (red) vs. observed (green).</figcaption></figure>
 </div>
 
 **Reading the results.** Both errors are small relative to the frame's 2160&times;3840
@@ -561,14 +561,14 @@ View 3's (2.2%&nbsp;&rarr;&nbsp;23.3%). View 3's absolute inlier count (7) remai
 the three views and is reported here as the genuine result, not tuned away.
 
 <div class="figure-row">
-<figure><img src="../../results/sfm/view_1_orb_keypoints.jpg"><figcaption>Fig. 5. View 1 (reference): detected ORB keypoints.</figcaption></figure>
-<figure><img src="../../results/sfm/view_3_to_view_1_matches_inliers.jpg"><figcaption>Fig. 6. View 3&rarr;1 RANSAC-inlier matches (green) and outliers (red).</figcaption></figure>
+<figure><img src="../../results/sfm/view_1_orb_keypoints.jpg" width="240"><figcaption>Fig. 5. View 1 (reference): detected ORB keypoints.</figcaption></figure>
+<figure><img src="../../results/sfm/view_3_to_view_1_matches_inliers.jpg" width="480"><figcaption>Fig. 6. View 3&rarr;1 RANSAC-inlier matches (green) and outliers (red).</figcaption></figure>
 </div>
 
 <div class="figure-row">
-<figure><img src="../../results/sfm/view_2_registered_into_view_1_frame.jpg"><figcaption>Fig. 7a. View 2 registered into View 1's frame via $H$.</figcaption></figure>
-<figure><img src="../../results/sfm/view_3_registered_into_view_1_frame.jpg"><figcaption>Fig. 7b. View 3 registered into View 1's frame via $H$.</figcaption></figure>
-<figure><img src="../../results/sfm/view_4_registered_into_view_1_frame.jpg"><figcaption>Fig. 7c. View 4 registered into View 1's frame via $H$.</figcaption></figure>
+<figure><img src="../../results/sfm/view_2_registered_into_view_1_frame.jpg" width="240"><figcaption>Fig. 7a. View 2 registered into View 1's frame via $H$.</figcaption></figure>
+<figure><img src="../../results/sfm/view_3_registered_into_view_1_frame.jpg" width="240"><figcaption>Fig. 7b. View 3 registered into View 1's frame via $H$.</figcaption></figure>
+<figure><img src="../../results/sfm/view_4_registered_into_view_1_frame.jpg" width="240"><figcaption>Fig. 7c. View 4 registered into View 1's frame via $H$.</figcaption></figure>
 </div>
 
 Each registered warp visibly rectifies the corresponding oblique photograph back to a
@@ -618,9 +618,9 @@ View 1's own manual boundary and each of View 2/3/4's manual boundary **transfor
 homography** into View 1's frame (a **homography-predicted** value, explicitly distinguished
 from the manual observations that produced it):
 
-<figure><img src="../../results/sfm/reference_boundary_reconstruction.jpg" style="max-height:380px;"><figcaption>Fig. 8. Reference-frame boundary reconstruction: red = View 1's own manual boundary; yellow = the four-view consensus (registered) boundary. The two agree closely (median corner disagreement ~64 px out of a ~4300&times;5700 px image).</figcaption></figure>
+<figure><img src="../../results/sfm/reference_boundary_reconstruction.jpg" width="240" style="max-height:380px;"><figcaption>Fig. 8. Reference-frame boundary reconstruction: red = View 1's own manual boundary; yellow = the four-view consensus (registered) boundary. The two agree closely (median corner disagreement ~64 px out of a ~4300&times;5700 px image).</figcaption></figure>
 
-<figure><img src="../../results/sfm/view_1_top_down_rectified.jpg" style="max-height:380px;"><figcaption>Fig. 9. Normalized top-down rectification of View 1's cover using its own manual boundary as the target rectangle &mdash; a direct visual confirmation that the recovered boundary and homography geometry are consistent (the printed text appears horizontal and undistorted).</figcaption></figure>
+<figure><img src="../../results/sfm/view_1_top_down_rectified.jpg" width="201" style="max-height:380px;"><figcaption>Fig. 9. Normalized top-down rectification of View 1's cover using its own manual boundary as the target rectangle &mdash; a direct visual confirmation that the recovered boundary and homography geometry are consistent (the printed text appears horizontal and undistorted).</figcaption></figure>
 
 ### 11.6 Reprojection validation
 
@@ -642,44 +642,24 @@ near-cancellation, so the rounded 6-decimal display matrix in Section 11.4 is fo
 only &mdash; reproducing this workout by hand requires the full-precision values below or in
 `results/sfm/sfm_summary.json`), $q = H_{2\to1}\,p$:
 
-$$
-\begin{aligned}
-q_1 &= 1.201221344854071 \times 3062.880126953125 \;+\; 0.06926693687299869 \times 3085.920166015625 \;-\; 2538.199838680171 \\
-    &= 1354.7493838797873
-\end{aligned}
-$$
-$$
-\begin{aligned}
-q_2 &= -0.27576898035706154 \times 3062.880126953125 \;+\; 1.1437477768111421 \times 3085.920166015625 \;-\; 466.00064529011627 \\
-    &= 2218.866354441155
-\end{aligned}
-$$
-$$
-\begin{aligned}
-q_3 &= -0.00010774500481609414 \times 3062.880126953125 \;+\; 0.000007639348673605868 \times 3085.920166015625 \;+\; 1.0 \\
-    &= 0.6935643860974214
-\end{aligned}
-$$
+$$q_1 = 1.201221344854071 \times 3062.880126953125 \;+\; 0.06926693687299869 \times 3085.920166015625 \;-\; 2538.199838680171$$
+$$q_1 = 1354.7493838797873$$
+$$q_2 = -0.27576898035706154 \times 3062.880126953125 \;+\; 1.1437477768111421 \times 3085.920166015625 \;-\; 466.00064529011627$$
+$$q_2 = 2218.866354441155$$
+$$q_3 = -0.00010774500481609414 \times 3062.880126953125 \;+\; 0.000007639348673605868 \times 3085.920166015625 \;+\; 1.0$$
+$$q_3 = 0.6935643860974214$$
 
 Normalizing (dividing by $q_3$):
 
-$$
-\begin{aligned}
-x' &= q_1/q_3 = 1354.7493838797873 / 0.6935643860974214 = 1953.3145170598373 \\
-y' &= q_2/q_3 = 2218.866354441155 / 0.6935643860974214 = 3199.221873150624
-\end{aligned}
-$$
+$$x' = q_1/q_3 = 1354.7493838797873 / 0.6935643860974214 = 1953.3145170598373$$
+$$y' = q_2/q_3 = 2218.866354441155 / 0.6935643860974214 = 3199.221873150624$$
 
 This point's **actual observed** corresponding location in View 1 (from the same real ORB
 match, not predicted) is $p'_{\text{actual}} = (1953.3316650390625,\ 3197.491943359375)$.
 Reprojection error:
 
-$$
-\begin{aligned}
-e &= \sqrt{(1953.314517-1953.331665)^2 + (3199.221873-3197.491943)^2} \\
-  &= \sqrt{0.000294 + 2.992291} = \sqrt{2.992585} = 1.730 \text{ px}
-\end{aligned}
-$$
+$$e = \sqrt{(1953.314517-1953.331665)^2 + (3199.221873-3197.491943)^2}$$
+$$e = \sqrt{0.000294 + 2.992291} = \sqrt{2.992585} = 1.730 \text{ px}$$
 
 This $p$, $H_{2\to1}$, $q$, and $e$ were independently recomputed for this report with plain
 scalar arithmetic (not calling the library's own homography-application function) at full
