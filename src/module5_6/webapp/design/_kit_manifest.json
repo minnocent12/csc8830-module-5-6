@@ -14,11 +14,13 @@
     "components/status.py": "1091f0c07f6515eac2574022b1960b79eaf2fc7dbcead60d226b5c9b0c777e0a",
     "components/theory.py": "b31cd420dfb6836f7c786068c7c0d6c12a106bd179a2fb44aa6644bbc56167e9",
     "components/uploads.py": "5ccaa2112a5ec68de3b46f08ae2aac7b3d5a77e7e9abe1e9a7e49186878a25bf",
-    "styles.py": "5f4879349da0b39a639e223fcd10d5658a4558febb9e4d123b76fa27dd74ba6b",
+    "navigation.py": "d88f8275b6899745defd75a7150bcaa2532a7bdbbeaaf0954198d1269a4d8a0a",
+    "shell.py": "5612b33742442a314d67e303f4ff415657bf546c4e7031b72ec527549db06cfd",
+    "styles.py": "2d8e7680bc3b7251c4417add1b6f8fed518c0394e9100d2a43b03a75b6cfae2d",
     "theme.py": "184f1ff1927bd8df65995d2edaa2fafe5dbef0449095b5b1023a8810c37252e8",
     "tokens.py": "edd3cc68e32ecada8652106dcf657c5e3269e75b02373373f0cb78f15786ef28",
-    "version.py": "032080d030a9f8025d5915cc79923dde70c2a65f174cdd929c45852d24313dba"
+    "version.py": "4d2dd87bc73ed0b7fd1622ac846f00c311778f258d5c6dca80c4bfb90235af35"
   },
   "kit": "csc8830-ui",
-  "kit_version": "0.3.0"
+  "kit_version": "0.4.0"
 }
