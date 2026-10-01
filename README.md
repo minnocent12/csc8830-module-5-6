@@ -142,8 +142,9 @@ Structure From Motion page and `docs/EXPERIMENTAL_RESULTS.md` Section 9).
 ### Visual theme
 
 `src/module5_6/webapp/design/` and `.streamlit/config.toml` are generated copies of the shared
-[csc8830-ui](https://github.com/minnocent12/csc8830-ui) design kit (`KIT_VERSION` 0.3.0), including its shared
-components in `webapp/design/components/`.
+[csc8830-ui](https://github.com/minnocent12/csc8830-ui) design kit (`KIT_VERSION` 0.4.0), including its shared
+components in `webapp/design/components/` and the shared app shell that
+`webapp/shell.py` delegates to.
 Do not edit them by hand; they are refreshed from that repository with its
 `scripts/vendor.py`. The app needs nothing from csc8830-ui at runtime, and
 `tests/test_design_theme.py` checks that the config still matches the vendored kit.

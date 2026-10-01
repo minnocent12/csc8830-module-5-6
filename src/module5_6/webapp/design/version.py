@@ -6,4 +6,4 @@ changes and the major version for renamed or removed tokens.
 """
 from __future__ import annotations
 
-KIT_VERSION = "0.3.0"
+KIT_VERSION = "0.4.0"

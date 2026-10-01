@@ -17,7 +17,7 @@ in Streamlit 1.47, 1.49, and 1.64.
 | 4 | ``[data-testid="stCaptionContainer"]`` | Streamlit fades captions with ``opacity: 0.6``, which drops them below AA; restore full opacity and use the muted text color (6.21:1) | low |
 | 5 | ``[data-testid="stMetricLabel"]`` and its ``div``/``p`` descendants, ``[data-testid="stMetricValue"]`` | metric label and value typography; native theme keys for this arrived after 1.47. The inner paragraph sets its own size, and the inner elements truncate with an ellipsis (a different element in 1.47 and 1.64), which hides long labels such as "Mean reproj. error, inliers (px)" on laptop widths, so labels wrap instead. Labels are never case-transformed because they carry units | medium: depends on the label's inner markup, which already differs between 1.47 and 1.64 |
 | 6 | ``.stApp :is(a, button, summary, [role="tab"]):focus-visible`` | one visible keyboard focus ring in the accessible orange | none: standard pseudo-class |
-| 7 | ``.csc8830-eyebrow``, ``.csc8830-breadcrumbs``, ``.csc8830-chip*`` | the few elements ``components`` renders with ``st.html``; chip colors come from AA-checked token pairs | none: the kit's own classes |
+| 7 | ``.csc8830-eyebrow``, ``.csc8830-breadcrumbs``, ``.csc8830-chip*``, ``.csc8830-identity*``, ``.csc8830-nav-label`` | the few elements ``components`` renders with ``st.html``; chip colors come from AA-checked token pairs | none: the kit's own classes |
 
 Nothing here hides a control, changes layout order, or replaces a native element, so
 AppTest and assistive technology see the same element tree as before.
@@ -136,7 +136,33 @@ def _component_css() -> str:
         f"background: var(--{p}-color-{_kebab(bg)}); }}"
         for kind, (fg, bg) in CHIP_COLORS.items()
     )
-    return f""".{p}-eyebrow {{
+    title = TYPOGRAPHY.app_title
+    return f""".{p}-identity {{
+  padding-left: var(--{p}-space-x3);
+  border-left: 4px solid var(--{p}-color-brand-orange);
+}}
+.{p}-identity-title {{
+  margin: 0;
+  padding: 0;
+  color: var(--{p}-color-text-heading);
+  font-size: {title.size_px}px;
+  font-weight: {title.weight};
+  line-height: {title.line_height};
+}}
+.{p}-identity-subtitle {{
+  margin: 0;
+  color: var(--{p}-color-text-muted);
+  font-size: {TYPOGRAPHY.body_small.size_px}px;
+}}
+.{p}-nav-label {{
+  margin: 0;
+  color: var(--{p}-color-text-muted);
+  font-size: {eyebrow.size_px}px;
+  font-weight: {eyebrow.weight};
+  letter-spacing: {eyebrow.letter_spacing_em}em;
+  text-transform: uppercase;
+}}
+.{p}-eyebrow {{
   margin: 0;
   color: var(--{p}-color-brand-orange-strong);
   font-size: {eyebrow.size_px}px;

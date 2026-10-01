@@ -32,3 +32,26 @@ def test_vendored_components_import() -> None:
 
     for name in ("page_header", "metric_row", "status_banner", "image_comparison", "upload_panel"):
         assert callable(getattr(components, name))
+
+
+def test_page_slugs_are_unique() -> None:
+    from module5_6.webapp.design.navigation import build_navigation
+    from module5_6.webapp.pages import get_pages
+    from module5_6.webapp.registry import collect_pages
+
+    (module,) = build_navigation(collect_pages([get_pages]))
+    assert len({page.slug for page in module.pages}) == len(module.pages)
+
+
+def test_standalone_shell_shows_module_context_without_a_selectbox() -> None:
+    from streamlit.testing.v1 import AppTest
+
+    from module5_6.webapp.pages import get_pages
+
+    app = AppTest.from_file(str(REPO_ROOT / "app.py"), default_timeout=60).run()
+    assert not app.exception
+    assert not app.sidebar.selectbox  # pages may have their own selectboxes
+    assert any(m.value == "**Module 5-6**" for m in app.sidebar.markdown)
+    assert app.sidebar.radio[0].label == "Page"
+    assert app.sidebar.radio[0].options == [p.page_label for p in get_pages()]
+    assert any("Breadcrumb" in e.proto.body for e in app.get("html"))
