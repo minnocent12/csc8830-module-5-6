@@ -93,6 +93,21 @@ _OPTICAL_FLOW_RESULTS_DIR = _REPO_ROOT / "results" / "optical_flow"
 _TRACKING_RESULTS_DIR = _REPO_ROOT / "results" / "tracking"
 
 
+def _public_record(value):
+    """Copy of a saved record for display, with file paths reduced to file names.
+
+    The committed record is unchanged; only the displayed copy drops repository folders
+    (``data/videos/video_1/IMG_7272.MOV`` is shown as ``IMG_7272.MOV``).
+    """
+    if isinstance(value, dict):
+        return {key: _public_record(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_public_record(item) for item in value]
+    if isinstance(value, str) and "/" in value and "." in value.rsplit("/", 1)[-1]:
+        return value.rsplit("/", 1)[-1]
+    return value
+
+
 def _bgr_to_rgb(image):
     """Reverse the channel order for display with st.image; never mutates the input."""
     return image[:, :, ::-1]
@@ -185,9 +200,9 @@ def _render_optical_flow_bundled_results() -> bool:
         s3.metric("Max |flow| (px)", f"{summary['max_magnitude']:.3f}")
     if rendered_any:
         st.caption(
-            "Full write-up, both videos, and what these statistics do/do not support: "
-            "docs/EXPERIMENTAL_RESULTS.md Sections 1-4. Reproduce with "
-            "scripts/process_optical_flow.py."
+            "These saved results cover the full required sample of both assignment videos; "
+            "the statistics describe apparent motion in each sample, not object identity or "
+            "scene depth."
         )
     return rendered_any
 
@@ -218,7 +233,7 @@ def _render_tracking_bundled_results() -> bool:
     with result_section(
         "Committed Tracking Evidence",
         description=(
-            "Committed validation records and evidence images from results/tracking/ "
+            "Saved validation records and evidence images for the two assignment videos "
             "(not a live run)."
         ),
     ):
@@ -254,11 +269,9 @@ def _render_tracking_bundled_results() -> bool:
 
     section_header("Interpretation")
     st.caption(
-        "'Pixel error' above is the professor-required comparison between the algorithmic "
-        "Lucas-Kanade prediction and a manually observed Frame 2 location "
-        "(IMPLEMENTATION_PLAN.md Section 12) - see docs/TRACKING_VALIDATION.md for the "
-        "full procedure and docs/EXPERIMENTAL_RESULTS.md Section 5 for the written report. "
-        "Reproduce with scripts/validate_tracking.py."
+        "'Pixel error' compares the algorithmic Lucas-Kanade prediction with the Frame 2 "
+        "location identified by visual inspection. It is the two-frame pixel-location "
+        "validation for each assignment video."
     )
     return True
 
@@ -357,9 +370,8 @@ def _optical_flow_page() -> None:
                 value=90,
                 step=10,
                 help=(
-                    "Bounds compute time for this live demo. scripts/process_optical_flow.py "
-                    "processes the full required sample for the actual assignment submission "
-                    "(see the completed results above when no video is uploaded)."
+                    "Bounds compute time for this live demo. The submitted results process the full "
+                    "required sample (shown when no video is uploaded)."
                 ),
             )
         )
@@ -404,8 +416,8 @@ def _optical_flow_page() -> None:
             st.caption(
                 f"Interactive preview capped to the first {len(frames)} frames "
                 f"(~{len(frames) / metadata.fps:.1f} s) of the requested "
-                f"{duration_seconds:.1f} s sample. This cap affects only this live demo, not "
-                "scripts/process_optical_flow.py's full-sample processing."
+                f"{duration_seconds:.1f} s sample. This cap affects only this live demo; the "
+                "submitted results cover the full sample."
             )
         if not enforce_minimum and duration_seconds < MINIMUM_SAMPLE_DURATION_SECONDS:
             st.warning(
@@ -490,9 +502,8 @@ def _optical_flow_page() -> None:
         st.caption(
             "These statistics are computed live from whatever video was uploaded above; they "
             "are exploratory tooling for that upload, not the assignment's required two-frame "
-            "pixel tracking validation (see the Motion Tracking page for that, or "
-            "docs/EXPERIMENTAL_RESULTS.md Section 5 for the completed real result on the two "
-            "required assignment videos)."
+            "pixel tracking validation (see the Motion Tracking page for that, including the "
+            "completed result for the two assignment videos)."
         )
     finally:
         input_path.unlink(missing_ok=True)
@@ -698,8 +709,8 @@ def _render_tracking_run(run: _TrackingRun) -> None:
             "**not** the assignment's required pixel-location validation, which compares a "
             "predicted location against an actual observed location manually identified in "
             "a real video frame - that comparison is below, on this uploaded video "
-            "(the completed real result for the two required assignment videos is shown "
-            "when no video is uploaded, and in docs/EXPERIMENTAL_RESULTS.md Section 5)."
+            "(the completed result for the two assignment videos is shown when no video is "
+            "uploaded)."
         )
         max_rows = 200
         rows = []
@@ -729,16 +740,15 @@ def _render_tracking_run(run: _TrackingRun) -> None:
 
         section_header(
             "Manual Validation",
-            description="Two-frame pixel-location validation (manual, professor-required)",
+            description="Two-frame pixel-location validation",
         )
         st.caption(
-            "IMPLEMENTATION_PLAN.md Section 12: pick a point above, see its algorithmic "
-            "Lucas-Kanade prediction, then **you** visually determine and enter where that "
-            "point actually is in Frame 2. Unlike 'LK consistency error' and "
-            "'Forward-backward consistency' above - which never look at Frame 2 as an "
-            "image - this produces a meaningful pixel error only if the observed "
-            "coordinate truly comes from inspecting Frame 2, not from accepting a default "
-            "or copying the prediction."
+            "Select a point, inspect Frame 2, and enter the observed coordinates. The app will "
+            "calculate the pixel error between the predicted and observed locations. Unlike "
+            "'LK consistency error' and 'Forward-backward consistency' above, which never "
+            "look at Frame 2 as an image, this pixel error is meaningful only if the observed "
+            "coordinate truly comes from inspecting Frame 2, not from accepting a default or "
+            "copying the prediction."
         )
         point_index = int(
             st.number_input(
@@ -821,9 +831,8 @@ def _render_tracking_run(run: _TrackingRun) -> None:
                 key="tracking_validation_download",
             )
             st.caption(
-                "Save this record under results/tracking/<video_id>/, or upload it on the "
-                "Experiments & Results page, to include it in the consolidated validation "
-                "table. This pixel error is real and computed from the coordinates you "
+                "Upload this record on the Experiments & Results page to include it in the "
+                "consolidated validation table. This pixel error is real and computed from the coordinates you "
                 "entered - it is only meaningful evidence if the observed coordinate truly "
                 "came from inspecting Frame 2."
             )
@@ -838,18 +847,16 @@ def _render_tracking_run(run: _TrackingRun) -> None:
     st.caption(
         "These trajectories are computed live from whatever video was uploaded above; they "
         "are exploratory tooling, not the assignment's required experimental evidence. The "
-        "committed two-consecutive-frame validation of the two required assignment videos is "
-        "shown on this page when no video is uploaded, and written up in "
-        "docs/EXPERIMENTAL_RESULTS.md Section 5."
+        "validation results for the assignment videos are available on this page when no "
+        "video is uploaded."
     )
 
 
 _MOTION_TRACKING_INTRO = (
     "Question 1: Shi-Tomasi feature detection plus pyramidal Lucas-Kanade tracking between "
-    "consecutive frames, following the two-frame tracking problem from "
-    "IMPLEMENTATION_PLAN.md Section 10 (find P' = (x+u, y+v) in Frame 2 for each point "
-    "P = (x, y) in Frame 1). The formal brightness-constancy/Lucas-Kanade derivation is on "
-    "the Bilinear Interpolation & Theory page; the professor-required manual "
+    "consecutive frames, solving the two-frame tracking problem (find P' = (x+u, y+v) in "
+    "Frame 2 for each point P = (x, y) in Frame 1). The formal brightness-constancy/"
+    "Lucas-Kanade derivation is on the Bilinear Interpolation & Theory page; the manual "
     "pixel-location validation is below, once features are detected and tracked."
 )
 
@@ -1020,10 +1027,9 @@ def _theory_page() -> None:
     st.info(
         "Question 1's required theory: brightness constancy through the optical-flow "
         "constraint equation and the aperture problem, the Lucas-Kanade least-squares "
-        "tracking derivation and its relationship to the Phase 2 OpenCV implementation, and "
-        "the bilinear-interpolation derivation with an interactive demonstration. Full "
-        "write-ups: docs/OPTICAL_FLOW_THEORY.md, docs/MOTION_TRACKING_DERIVATION.md, "
-        "docs/BILINEAR_INTERPOLATION.md."
+        "tracking derivation and its relationship to the OpenCV implementation used on the "
+        "Motion Tracking page, and the bilinear-interpolation derivation with an "
+        "interactive demonstration."
     )
 
     st.subheader("1. Brightness constancy")
@@ -1046,7 +1052,7 @@ def _theory_page() -> None:
         "equation**:"
     )
     st.latex(r"I_x u + I_y v + I_t = 0")
-    st.caption("Full step-by-step derivation: docs/OPTICAL_FLOW_THEORY.md, Sections 2-4.")
+    st.caption("The full step-by-step derivation is included in the written report.")
 
     st.subheader("3. The aperture problem")
     st.markdown(
@@ -1072,10 +1078,9 @@ def _theory_page() -> None:
         "valid when `A^T A` (the structure tensor) is invertible - i.e. both eigenvalues are "
         "large enough. This is the same criterion `cv2.goodFeaturesToTrack` uses to select "
         "trackable corners and that `calcOpticalFlowPyrLK`'s `minEigThreshold` uses to reject "
-        "unreliable tracks (Phase 2, `module5_6.tracking`). OpenCV's implementation is "
+        "unreliable tracks on the Motion Tracking page. OpenCV's implementation is "
         "pyramidal and iterative - it does not execute the equations above literally line by "
-        "line, but solves this same least-squares model at each pyramid level. Full "
-        "explanation: docs/MOTION_TRACKING_DERIVATION.md."
+        "line, but solves this same least-squares model at each pyramid level."
     )
 
     st.subheader("5. Bilinear interpolation: derivation from two 1D interpolations")
@@ -1084,8 +1089,7 @@ def _theory_page() -> None:
         "integer pixel grid. Bilinear interpolation estimates a value there from its four "
         "integer-pixel neighbors `I00, I10, I01, I11`, with fractional offsets "
         "`α = x - x0` and `β = y - y0`. Interpolating along `x` at each known row, "
-        "then along `y` between those two results (full derivation: "
-        "docs/BILINEAR_INTERPOLATION.md):"
+        "then along `y` between those two results:"
     )
     st.latex(r"R_0 = (1-\alpha) I_{00} + \alpha I_{10}, \qquad R_1 = (1-\alpha) I_{01} + \alpha I_{11}")
     st.latex(r"I(x,y) = (1-\beta) R_0 + \beta R_1")
@@ -1127,7 +1131,7 @@ def _theory_page() -> None:
     st.pyplot(_bilinear_diagram(i00, i10, i01, i11, alpha, beta))
     st.caption(
         "Default values (I00=10, I10=20, I01=30, I11=40, alpha=0.3, beta=0.7) reproduce the "
-        "worked example in docs/BILINEAR_INTERPOLATION.md Section 4 (expected result: 27.0)."
+        "worked example from the written derivation (expected result: 27.0)."
     )
 
 
@@ -1225,12 +1229,11 @@ def _render_sfm_bundled_results(summary: dict) -> None:
             f"Actual observed point: `{tuple(round(v, 3) for v in workout['actual_observed_reference_xy'])}`. "
             f"Reprojection error: **{workout['reprojection_error_px']:.3f} px**."
         )
-        st.caption("Full derivation, independently hand-verified: docs/SFM_CALCULATIONS.md Section 7.")
+        st.caption("This calculation was also verified independently by hand.")
 
     st.caption(
-        "Full write-up: docs/EXPERIMENTAL_RESULTS.md Section 9, docs/SFM_CALCULATIONS.md "
-        "Sections 6-7, docs/CAMERA_GEOMETRY.md Section 5. Reproduce with "
-        "`python scripts/process_sfm_experiment.py`."
+        "The full write-up, including the camera geometry and the complete calculations, is "
+        "in the written report."
     )
 
 
@@ -1238,8 +1241,7 @@ def _sfm_page() -> None:
     st.header("Structure From Motion")
     st.info(
         "Question 2: four-viewpoint planar homography registration for a flat/2D planar "
-        "object - not a dense/full 3D reconstruction (see "
-        "docs/STRUCTURE_FROM_MOTION_THEORY.md). Upload real images of a single planar object "
+        "object - not a dense/full 3D reconstruction. Upload real images of a single planar object "
         "taken from different camera positions to run the live pipeline below, or leave empty "
         "to see the completed real four-view experiment."
     )
@@ -1264,7 +1266,7 @@ def _sfm_page() -> None:
         if _SFM_SUMMARY_PATH.is_file():
             st.info(
                 "No images uploaded, so this shows the completed real four-view SfM experiment "
-                "(committed results, not a placeholder - see results/sfm/sfm_summary.json). "
+                "(saved results, not a placeholder). "
                 "Upload your own images above to run the live pipeline on a different object "
                 "instead; that overrides this view."
             )
@@ -1276,8 +1278,8 @@ def _sfm_page() -> None:
             return
         pending_experiment_banner(
             "Upload at least two views (ideally all four) to exercise feature matching and "
-            "homography registration. The four required real assignment viewpoints remain "
-            "PENDING USER EXPERIMENT until supplied under data/sfm/view_1/ through view_4/."
+            "homography registration. The completed four-view experiment on the assignment "
+            "object is shown when no images are uploaded."
         )
         return
     if len(images_bgr) < 4:
@@ -1290,7 +1292,7 @@ def _sfm_page() -> None:
     st.caption(
         "Record any real camera information you actually have for each supplied view. "
         "Width/height come from the uploaded image itself; every other field stays blank "
-        "(never fabricated) until you supply a real value. See docs/CAMERA_GEOMETRY.md."
+        "(never fabricated) until you supply a real value."
     )
     view_metadata: dict[str, ViewMetadata] = {}
     for view_id in images_bgr:
@@ -1359,7 +1361,7 @@ def _sfm_page() -> None:
     if enable_boundary:
         st.caption(
             "Pixel coordinates, top-left origin, x increases right, y increases down "
-            "(matches the convention in docs/BILINEAR_INTERPOLATION.md and elsewhere in this app)."
+            "(the same convention used throughout this app)."
         )
         for view_id in images_bgr:
             height, width = images_bgr[view_id].shape[:2]
@@ -1458,26 +1460,24 @@ def _sfm_page() -> None:
     st.caption(
         "These features, matches, homographies, and reprojection errors are computed live from "
         "whatever images were uploaded above; they are exploratory/software-verification "
-        "tooling. The professor-required four-view experiment on the real assignment object "
-        "remains PENDING USER EXPERIMENT until the real images are supplied under "
-        "data/sfm/view_1/ through view_4/."
+        "tooling. The completed four-view experiment on the assignment object is shown when "
+        "no images are uploaded."
     )
 
 
 def _experiments_page() -> None:
     st.header("Experiments & Results")
     st.info(
-        "Question 1's professor-required two-consecutive-frame pixel-location validation "
-        "(IMPLEMENTATION_PLAN.md Section 12) and consolidated video/experiment evidence, plus "
+        "Question 1's two-consecutive-frame pixel-location validation and consolidated "
+        "video/experiment evidence, plus "
         "a summary of the completed Question 2 four-view Structure From Motion experiment."
     )
 
     st.subheader("Video status")
     st.caption(
-        "Experiment status reflects the committed results under results/optical_flow/ and "
-        "results/tracking/, not whether the large raw source video happens to be present in "
-        "this environment - the raw videos are gitignored by design, so a fresh clone or the "
-        "public deployment never has them, but the completed real evidence is still shown."
+        "Experiment status reflects the saved results for each video, not whether the large "
+        "raw source video is present in this environment. The raw videos are not included "
+        "in the app, but the completed evidence is still shown."
     )
     video_1_path = find_supplied_video(_REPO_ROOT / "data" / "videos" / "video_1")
     video_2_path = find_supplied_video(_REPO_ROOT / "data" / "videos" / "video_2")
@@ -1488,44 +1488,40 @@ def _experiments_page() -> None:
         if video_1_done:
             st.success("Video 1: experiment complete.")
         else:
-            st.warning("Video 1: PENDING USER EXPERIMENT - no results/optical_flow/video_1/ summary found.")
+            st.warning("Video 1: PENDING USER EXPERIMENT - no saved optical-flow summary found.")
         st.caption(f"Raw source file present locally: {'yes (' + video_1_path.name + ')' if video_1_path else 'no'}")
     with c2:
         if video_2_done:
             st.success("Video 2: experiment complete.")
         else:
-            st.warning("Video 2: PENDING USER EXPERIMENT - no results/optical_flow/video_2/ summary found.")
+            st.warning("Video 2: PENDING USER EXPERIMENT - no saved optical-flow summary found.")
         st.caption(f"Raw source file present locally: {'yes (' + video_2_path.name + ')' if video_2_path else 'no'}")
 
     if not video_1_done and not video_2_done:
         pending_experiment_banner(
-            "Neither assignment video's experiment has been completed yet. Add real video "
-            "files under data/videos/video_1/ and data/videos/video_2/, or point "
-            "scripts/process_optical_flow.py / scripts/validate_tracking.py at your own copy "
-            "of them, then reload this page. Do not substitute a synthetic or unrelated video "
+            "Neither assignment video's experiment has been completed yet. Process the two real "
+            "assignment videos with the optical-flow and tracking-validation tools, then "
+            "reload this page. Do not substitute a synthetic or unrelated video "
             "for the assignment submission."
         )
     manifest_path = _REPO_ROOT / "data" / "experiment_manifest.json"
     manifest = load_experiment_manifest(manifest_path) if manifest_path.is_file() else default_experiment_manifest()
     st.caption(
-        f"Experiment manifest schema version {manifest['schema_version']} "
-        "(data/experiment_manifest.json documents the full per-video schema; see "
-        "docs/EXPERIMENTAL_RESULTS.md)."
+        f"Experiment manifest schema version {manifest['schema_version']}."
     )
 
     st.subheader("Optical-flow evidence")
     st.caption(
-        "Run scripts/process_optical_flow.py against each supplied video to generate the "
-        "optical-flow visualization video and magnitude/direction summary required by "
-        "Question 1; results are written under results/optical_flow/<video_id>/."
+        "Each supplied video is processed into the optical-flow visualization video and "
+        "magnitude/direction summary required by Question 1."
     )
     for video_id in ("video_1", "video_2"):
         summary_path = _REPO_ROOT / "results" / "optical_flow" / video_id / f"{video_id}_optical_flow_summary.json"
         if summary_path.is_file():
             try:
                 summary = json.loads(summary_path.read_text())
-                st.success(f"{video_id}: optical-flow evidence available ({summary_path}).")
-                st.json(summary)
+                st.success(f"{video_id}: optical-flow evidence available.")
+                st.json(_public_record(summary))
             except (ValueError, OSError) as exc:
                 st.error(f"Could not read {summary_path}: {exc}")
         else:
@@ -1533,10 +1529,9 @@ def _experiments_page() -> None:
 
     st.subheader("Two-consecutive-frame pixel-location validation records")
     st.caption(
-        "Records generated by results/tracking/<video_id>/*_record.json (produced by "
-        "scripts/validate_tracking.py or the Motion Tracking page's manual-validation "
-        "workflow) are loaded automatically below; you can also upload additional record "
-        "JSON files. The table reproduces IMPLEMENTATION_PLAN.md Section 12's required shape."
+        "Saved validation records (from the tracking-validation tool or the Motion Tracking "
+        "page's manual-validation workflow) are loaded automatically below; you can also "
+        "upload additional record JSON files."
     )
     records: list[TrackingValidationRecord] = []
     seen_keys: set[tuple[str, str, int]] = set()
@@ -1585,9 +1580,9 @@ def _experiments_page() -> None:
             ]
         )
         pending_experiment_banner(
-            "No validation records uploaded yet. This table mirrors "
-            "IMPLEMENTATION_PLAN.md Section 12's required shape until real records exist - "
-            "PENDING USER EXPERIMENT: real videos not yet supplied."
+            "No validation records uploaded yet. This table shows the required record layout "
+            "until real records exist - PENDING USER EXPERIMENT: real videos not yet "
+            "supplied."
         )
     else:
         st.dataframe(records_to_table(records), width="stretch")
@@ -1602,7 +1597,7 @@ def _experiments_page() -> None:
         if pending_count:
             st.warning(f"{pending_count} of {len(records)} uploaded record(s) are still awaiting manual observation.")
         st.caption(
-            "Pixel error above is the professor-required comparison between the predicted and "
+            "Pixel error above compares the predicted and "
             "manually observed Frame 2 location - distinct from OpenCV's algorithmic tracking "
             "error and forward-backward consistency shown on the Motion Tracking page. Do not "
             "overstate what a small error means; it reflects only the point(s) actually "
@@ -1617,8 +1612,7 @@ def _experiments_page() -> None:
                 f"Four-view SfM experiment complete - reference view "
                 f"{sfm_summary['reference_view_id']}, "
                 f"{len(sfm_summary['registrations'])} views registered. "
-                "See the Structure From Motion page for the full real results, or "
-                "docs/EXPERIMENTAL_RESULTS.md Section 9 for the written report."
+                "See the Structure From Motion page for the full real results."
             )
             reproj_means = [r["reprojection_error_px"]["mean_inliers"] for r in sfm_summary["registrations"].values()]
             inlier_counts = [r["inlier_count"] for r in sfm_summary["registrations"].values()]
@@ -1635,7 +1629,7 @@ def _experiments_page() -> None:
         st.write(
             "The reusable planar homography-registration foundation (ORB features, homography "
             "estimation/reprojection, boundary registration - see the Structure From Motion "
-            "page and docs/STRUCTURE_FROM_MOTION_THEORY.md) is implemented and tested against "
+            "page) is implemented and tested against "
             "synthetic fixtures."
         )
         pending_experiment_banner(

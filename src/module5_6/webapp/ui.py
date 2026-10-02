@@ -10,9 +10,8 @@ IMAGE_TYPES = ["jpg", "jpeg", "png", "bmp", "tif", "tiff"]
 def pending_experiment_banner(detail: str | None = None) -> None:
     """Display an honest notice for work that needs later implementation or user data."""
     message = (
-        "**PENDING USER EXPERIMENT / LATER PHASE.** "
-        "No empirical result, tracked pixel location, or SfM measurement is available in the "
-        "foundation phase."
+        "**PENDING USER EXPERIMENT.** "
+        "No empirical result is available for this section yet."
     )
     st.warning(message if detail is None else f"{message}\n\n{detail}")
 
@@ -22,6 +21,6 @@ def foundation_page(title: str, scope: str) -> None:
     st.header(title)
     st.write(scope)
     pending_experiment_banner(
-        "This page is structurally available now. Its computer-vision processing is scheduled "
-        "for a later approved phase."
+        "This page is available, but its computer-vision processing is not implemented "
+        "yet."
     )
